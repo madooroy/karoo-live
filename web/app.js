@@ -194,6 +194,8 @@
     if (!fb && !kt) return null;
     if (!fb) return kt;
     if (!kt) return fb;
+    // Hammerhead's feed only fills in while it shows a ride; between rides it's stale.
+    if (kt.state !== "recording" && kt.state !== "paused") return fb;
     const fbFresh = fb.updatedAt && (!kt.updatedAt || fb.updatedAt >= kt.updatedAt - 60000);
     const base = fbFresh ? fb : { ...fb, state: kt.state, updatedAt: kt.updatedAt, cur: { ...fb.cur, lat: kt.cur.lat, lng: kt.cur.lng, brg: kt.cur.brg } };
     const cur = { ...kt.cur, ...base.cur };
@@ -236,11 +238,10 @@
   function initMap() {
     if (map || !window.L) return;
     map = L.map("map", { zoomControl: true, attributionControl: true });
-    const dark = document.documentElement.dataset.theme === "dark" ||
-      (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`, {
-      maxZoom: 19, subdomains: "abcd",
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    // OpenStreetMap's standard tiles: free with attribution, no key. Dark mode inverts them in CSS.
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
     const css = getComputedStyle(document.documentElement);
     routeLine = L.polyline([], { color: css.getPropertyValue("--route").trim(), weight: 4, opacity: .85, dashArray: "8 8" }).addTo(map);

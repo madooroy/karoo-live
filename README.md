@@ -66,6 +66,6 @@ APKs are signed with a key committed in `android/app/` so every build installs o
 
 - [hammerheadnav/karoo-ext](https://github.com/hammerheadnav/karoo-ext) (Apache 2.0), vendored in `android/karoo-ext/`
 - Inspired by KarooTracker by drakey
-- Maps © OpenStreetMap contributors, tiles by CARTO, [Leaflet](https://leafletjs.com)
+- Maps © OpenStreetMap contributors, [Leaflet](https://leafletjs.com)
 
 Licensed under the Apache License 2.0.

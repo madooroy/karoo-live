@@ -290,4 +290,8 @@ footer { margin-top: 22px; font-size: 12px; color: var(--text-3); text-align: ce
 }
 
 /* leaflet tweaks */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
+}
+:root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
 .leaflet-container { font-family: var(--ui); background: var(--surface-2); }
