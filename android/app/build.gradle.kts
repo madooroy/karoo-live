@@ -64,6 +64,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     implementation("com.google.zxing:core:3.5.3")
+    testImplementation("junit:junit:4.13.2")
 }
 
 // Writes manifest.json next to the APK so the Karoo can find updates (see MANIFEST_URL in AndroidManifest.xml).

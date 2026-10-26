@@ -33,13 +33,21 @@ jobs:
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           set -o pipefail
-          ./gradlew --no-daemon assembleRelease karooManifest 2>&1 | tee build.log || {
+          ./gradlew --no-daemon testReleaseUnitTest assembleRelease karooManifest 2>&1 | tee build.log || {
             # Surface compiler and Gradle errors as annotations (readable without log access)
             grep -E '^e: |error:|What went wrong|FAILURE|Could not|> ' build.log | head -40 | while IFS= read -r line; do
               echo "::error::${line}"
             done
             exit 1
           }
+
+      - name: Inspect APK
+        run: |
+          AAPT2=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)aapt2
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          $AAPT2 dump badging $APK | grep -E "^package|sdkVersion|uses-permission|launchable" | while IFS= read -r l; do echo "::notice title=badging::$l"; done
+          $AAPT2 dump xmltree --file AndroidManifest.xml $APK | grep -E "E: (service|activity|action|meta-data)|A: android:name|A: android:resource" | tr -s ' ' | head -30 | while IFS= read -r l; do echo "::notice title=manifest::$l"; done
+          ls -la $APK
 
       - name: Collect outputs
         run: |
