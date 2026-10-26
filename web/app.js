@@ -433,9 +433,17 @@
       e.preventDefault();
       const v = $("#open-input").value.trim();
       if (!v) return;
-      if (/^https?:\/\//.test(v) && v.includes("?")) { location.href = v; return; }
+      const hint = $("#open-hint");
+      // A full link (with or without https://) opens directly.
+      if (/[?&]id=/.test(v) || /^(https?:\/\/)?[^\s]+\?/i.test(v)) {
+        location.href = /^https?:\/\//i.test(v) ? v : "https://" + v;
+        return;
+      }
       const id = v.split("/").pop();
-      if (SAFE_ID.test(id)) location.search = "?k2t=" + encodeURIComponent(id);
+      // KarooTracker / Hammerhead tracking ids are 8 characters; Karoo Live ids need the whole link.
+      if (/^[A-Za-z0-9]{8}$/.test(id)) { location.search = "?k2t=" + encodeURIComponent(id); return; }
+      hint.textContent = "That looks like part of a Karoo Live link. Paste the whole link: it starts with https://mybikeride.live/?db=…";
+      hint.hidden = false;
     });
   }
 })();
