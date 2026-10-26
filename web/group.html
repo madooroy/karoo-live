@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Group ride · Karoo Live</title>
+  <meta name="description" content="Follow a group ride live: everyone on one map, who's ahead, who's behind, and who has lost signal.">
+  <meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="group.css">
+  <script>
+    // Apply a saved light/dark choice before the first paint.
+    try { const t = localStorage.getItem("karoolive.theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) { /* storage blocked */ }
+  </script>
+</head>
+<body>
+  <!-- ======================================================= live group view -->
+  <main class="wrap gwrap" id="group" hidden>
+    <header class="top">
+      <h1 id="gname">Group ride</h1>
+      <span class="pill" id="gstatus"><span class="dot"></span>Waiting</span>
+      <span class="spacer"></span>
+      <button class="iconbtn" id="units" title="Switch units">km</button>
+      <button class="iconbtn" id="theme" title="Switch light or dark" aria-label="Switch light or dark theme">◐</button>
+      <button class="iconbtn" id="edit" title="Edit the group">Edit</button>
+      <button class="iconbtn" id="copy">Share</button>
+    </header>
+    <div class="sub" id="gsub">Connecting…</div>
+
+    <div class="ggrid">
+      <section class="card mapcard gmapcard" aria-label="Map of the group">
+        <div id="map"></div>
+        <div class="map-msg" id="map-msg" hidden>The map couldn't load. Check your connection and reload.</div>
+        <div class="map-tools" role="group" aria-label="Map view">
+          <button class="seg" id="view-all" aria-pressed="true">Everyone</button>
+          <button class="seg" id="view-route" aria-pressed="false" hidden>Route</button>
+          <button class="seg following" id="view-follow" hidden aria-pressed="true"></button>
+        </div>
+        <div class="map-legend" id="legend-route" hidden><span><i class="route-band"></i>Planned route</span></div>
+      </section>
+
+      <section class="card glist" aria-labelledby="riders-h">
+        <div class="glist-head">
+          <h2 id="riders-h">Riders</h2>
+          <div class="sortby" role="group" aria-label="Sort riders">
+            <button class="seg" id="sort-togo" aria-pressed="true" hidden>To go</button>
+            <button class="seg" id="sort-dist" aria-pressed="false">Ridden</button>
+          </div>
+        </div>
+        <ol class="riders" id="riders"></ol>
+        <div class="others" id="others" hidden>
+          <h3>Other trackers</h3>
+          <p class="hint">These riders share through their own device's live tracking. Their position isn't on this map; open their page to see it.</p>
+          <ul id="others-list"></ul>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      Each rider's data comes straight from their own database · <a href="./">Karoo Live</a> · <a href="https://github.com/madooroy/karoo-live">open source</a>
+    </footer>
+  </main>
+
+  <!-- ======================================================= builder -->
+  <main class="wrap" id="builder" hidden>
+    <div class="landing gbuild">
+      <h1>Group ride</h1>
+      <p>Follow several riders on one map. Paste each rider's live link, one per line. Karoo Live links show full numbers; KarooTracker ids show position. Links from other trackers (Garmin LiveTrack, Wahoo, Strava Beacon…) are listed with a button to open them.</p>
+      <form id="build-form">
+        <label for="build-name">Ride name</label>
+        <input id="build-name" placeholder="Saturday coffee ride" maxlength="60" autocomplete="off">
+        <label for="build-links">Riders' links</label>
+        <textarea id="build-links" rows="6" spellcheck="false" autocomplete="off"
+          placeholder="https://mybikeride.live/?db=…&amp;id=…&#10;https://mybikeride.live/?db=…&amp;id=…&#10;Sam https://livetrack.garmin.com/session/…"></textarea>
+        <p class="hint">For another tracker's link, put the rider's name on the same line. You can also paste an existing group link to add to it.</p>
+        <div class="build-actions">
+          <button type="button" class="secondary" id="build-add">Add riders</button>
+        </div>
+        <ol class="build-list" id="build-list" aria-label="Riders in this group"></ol>
+        <p class="build-msg" id="build-msg" role="status"></p>
+        <div class="build-out" id="build-out" hidden>
+          <label for="build-url">Group link</label>
+          <div class="build-urlrow">
+            <input id="build-url" readonly>
+            <button type="button" id="build-copy">Copy</button>
+          </div>
+          <p class="hint" id="build-len"></p>
+          <div class="build-actions">
+            <button type="submit">Open the group</button>
+          </div>
+        </div>
+      </form>
+      <p class="hint">The group lives entirely in the link: there's no account and nothing is stored. Each rider's data stays in their own database.</p>
+      <p><a href="./">Follow a single rider</a> · <a href="setup.html">Set up live tracking on a Karoo</a></p>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <script src="common.js"></script>
+  <script src="group.js"></script>
+</body>
+</html>
