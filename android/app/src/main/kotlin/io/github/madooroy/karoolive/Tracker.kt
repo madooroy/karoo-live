@@ -73,11 +73,13 @@ class Tracker(
         }
         consumerIds += karooSystem.addConsumer<RideState> { state ->
             val changed = rideState == null || state::class != rideState!!::class
+            if (changed) Timber.i("Ride state: ${state::class.simpleName}")
             rideState = state
             if (changed) wake.trySend(Unit)
         }
         consumerIds += karooSystem.addConsumer<UserProfile> { profile ->
             units = if (profile.preferredUnit.distance == UserProfile.PreferredUnit.UnitType.IMPERIAL) "imperial" else "metric"
+            Timber.i("Units: $units")
         }
         consumerIds += karooSystem.addConsumer<OnNavigationState> { event ->
             val newRoute: JsonElement = when (val nav = event.state) {
@@ -93,6 +95,7 @@ class Tracker(
                 else -> JsonNull
             }
             if (newRoute != route) {
+                Timber.i("Navigation: ${if (newRoute == JsonNull) "none" else "route loaded"}")
                 route = newRoute
                 routeDirty = true
             }
@@ -148,6 +151,7 @@ class Tracker(
             try {
                 firebase.ensureOwner()
                 ownerCheckedFor = ownerKey()
+                Timber.i("Signed in to ${settings.databaseHost}")
             } catch (e: Exception) {
                 fail(e)
                 return
@@ -172,6 +176,7 @@ class Tracker(
             }
         }
         if (newRide) {
+            Timber.i("New ride on link ${shareId.take(3)}…")
             if (settings.activeRideStartedAt != 0L) endRide() // best effort for the previous ride
             beginRide(shareId, now)
         }
@@ -195,6 +200,7 @@ class Tracker(
                 firebase.put("live/$shareId", node) // replaces the previous ride on this link, clearing its track
                 settings.rideNodeCreated = true
                 routeDirty = false
+                Timber.i("Ride page created")
             } catch (e: Exception) {
                 fail(e) // points stay queued until the connection is back
                 return
@@ -216,6 +222,7 @@ class Tracker(
             sentPoints.forEach { pendingTrack.remove(it) }
             if (includeRoute) routeDirty = false
             settings.setStatus("Live: last update sent ${TIME.format(Date())}")
+            Timber.i("Sent update: ${sentPoints.size} point(s), gps=${cur.containsKey("lat")}, hr=${cur.containsKey("hr")}, pwr=${cur.containsKey("pwr")}, cad=${cur.containsKey("cad")}")
         }
     }
 
@@ -241,6 +248,7 @@ class Tracker(
             } ?: return false
         }
         pendingTrack.clear()
+        Timber.i("Ride ended on the page")
         settings.activeRideStartedAt = 0L
         settings.activeRideShareId = ""
         settings.rideNodeCreated = false

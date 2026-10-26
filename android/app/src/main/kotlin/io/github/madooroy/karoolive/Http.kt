@@ -103,6 +103,7 @@ class Http(private val karooSystem: KarooSystemService) {
                 val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
                 HttpResult(code, text)
             } catch (e: Exception) {
+                Timber.w("Direct connection failed: ${e.javaClass.simpleName}: ${e.message}")
                 HttpResult(0, "", e.message ?: e.javaClass.simpleName)
             } finally {
                 conn?.disconnect()

@@ -19,7 +19,8 @@ class LiveExtension : KarooExtension("karoolive", BuildConfig.VERSION_NAME) {
 
     override fun onCreate() {
         super.onCreate()
-        if (Timber.treeCount == 0) Timber.plant(Timber.DebugTree())
+        FileLog.install(applicationContext)
+        Timber.i("Karoo Live ${BuildConfig.VERSION_NAME} started (Android ${android.os.Build.VERSION.RELEASE}, ${android.os.Build.MODEL})")
         karooSystem = KarooSystemService(applicationContext)
         val t = Tracker(karooSystem, Settings(applicationContext), scope)
         tracker = t

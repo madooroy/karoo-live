@@ -65,10 +65,12 @@ class MainActivity : Activity() {
     private lateinit var k2t: EditText
     private lateinit var linkText: TextView
     private lateinit var qr: ImageView
+    private lateinit var logView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settings = Settings(this)
+        FileLog.install(applicationContext)
         setContentView(buildUi())
         importFromIntent(intent)
         loadFields()
@@ -87,6 +89,7 @@ class MainActivity : Activity() {
                 val at = settings.lastStatusAt
                 val time = if (at > 0) DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at)) + "  " else ""
                 status.text = time + settings.lastStatus
+                logView.text = FileLog.tail(this@MainActivity, 40).joinToString("\n").ifBlank { "Nothing logged yet." }
                 delay(2000)
             }
         }
@@ -305,6 +308,27 @@ class MainActivity : Activity() {
                     .show()
             }
         }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
+        root.addView(TextView(this).apply {
+            text = "Recent activity"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(18), 0, dp(4))
+        })
+        logView = TextView(this).apply {
+            textSize = 10f
+            typeface = Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setBackgroundColor(Color.argb(40, 128, 128, 128))
+        }
+        root.addView(logView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        root.addView(TextView(this).apply {
+            text = "Full log: Android/data/io.github.madooroy.karoolive/files/logs"
+            textSize = 11f
+            alpha = 0.6f
+            setPadding(0, dp(4), 0, 0)
+        })
 
         root.addView(TextView(this).apply {
             text = "Setup guide: github.com/madooroy/karoo-live"

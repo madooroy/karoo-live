@@ -2,6 +2,7 @@ package io.github.madooroy.karoolive
 
 import android.content.Context
 import android.content.SharedPreferences
+import timber.log.Timber
 import java.security.SecureRandom
 
 /** All user settings plus a little runtime state, stored in SharedPreferences on the Karoo. */
@@ -100,6 +101,7 @@ class Settings(context: Context) {
         set(v) = prefs.edit().putLong("lastStatusAt", v).apply()
 
     fun setStatus(message: String) {
+        if (message != lastStatus && !message.startsWith("Live:") && !message.startsWith("Error")) Timber.i("Status: $message")
         lastStatus = message
         lastStatusAt = System.currentTimeMillis()
     }

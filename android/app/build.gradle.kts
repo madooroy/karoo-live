@@ -4,8 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-val appVersionName = "0.2.0"
-val appVersionCode = 3
+val appVersionName = "0.2.1"
+val appVersionCode = 4
 
 android {
     namespace = "io.github.madooroy.karoolive"
