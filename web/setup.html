@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Karoo Live setup</title>
+  <link rel="icon" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .setup { max-width: 720px; margin: 0 auto; }
+    .setup h1 { font-family: var(--num); font-size: 40px; margin: 18px 0 4px; }
+    .setup h2 { font-size: 18px; margin: 26px 0 8px; }
+    .setup p, .setup li { color: var(--text-2); line-height: 1.55; }
+    .setup .card { padding: 16px; }
+    .row { display: grid; gap: 4px; margin-bottom: 12px; }
+    .row label { font-size: 13px; font-weight: 600; color: var(--text-2); }
+    .row small { color: var(--text-3); font-size: 12px; }
+    .row input {
+      height: 42px; padding: 0 12px; font: 15px var(--ui); border-radius: 10px;
+      border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 100%;
+    }
+    .two { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 600px) { .two { grid-template-columns: 1fr 1fr; } }
+    pre {
+      background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all;
+      margin: 6px 0 4px; color: var(--text);
+    }
+    .copyrow { display: flex; justify-content: flex-end; }
+    .note { font-size: 13px; color: var(--text-3); }
+    .warn { border-left: 4px solid var(--warn); padding: 8px 12px; background: var(--surface-2); border-radius: 6px; font-size: 14px; color: var(--text-2); }
+  </style>
+</head>
+<body>
+  <main class="wrap setup">
+    <h1>Set up Karoo Live</h1>
+    <p>This page builds your personal share link and a one-line command that loads your settings onto the Karoo. Everything stays in this browser tab: nothing you type here is sent anywhere.</p>
+    <p class="note">Haven't made your Firebase database yet? Follow the <a href="https://github.com/madooroy/karoo-live/blob/main/docs/SETUP.md">setup guide</a> first (about 10 minutes, free).</p>
+
+    <h2>1. Your details</h2>
+    <form class="card" id="f" autocomplete="off" onsubmit="return false">
+      <div class="row">
+        <label for="db">Firebase database URL</label>
+        <input id="db" placeholder="https://your-project-default-rtdb.firebaseio.com">
+        <small>From Firebase → Realtime Database (top of the Data tab).</small>
+      </div>
+      <div class="row">
+        <label for="key">Web API key</label>
+        <input id="key" placeholder="AIza…">
+        <small>From Firebase → Project settings → General.</small>
+      </div>
+      <div class="two">
+        <div class="row">
+          <label for="email">Login email</label>
+          <input id="email" type="email" placeholder="the user you added in Authentication">
+        </div>
+        <div class="row">
+          <label for="password">Login password</label>
+          <input id="password" type="password">
+        </div>
+      </div>
+      <div class="two">
+        <div class="row">
+          <label for="name">Your name</label>
+          <input id="name" placeholder="Shown at the top of the page">
+        </div>
+        <div class="row">
+          <label for="interval">Update every (seconds)</label>
+          <input id="interval" type="number" min="5" max="300" value="15">
+        </div>
+      </div>
+      <div class="row">
+        <label for="k2t">KarooTracker id (optional)</label>
+        <input id="k2t" placeholder="e.g. 9h2Q3ZPK">
+        <small>Only if you also use k2tracker.drakey.co.uk. The page then falls back to Hammerhead's tracking when your Firebase feed is quiet.</small>
+      </div>
+    </form>
+
+    <h2>2. Your share link</h2>
+    <p>Send this to friends and family. It stays the same for every ride.</p>
+    <pre id="link">Fill in the database URL first.</pre>
+    <div class="copyrow"><button class="iconbtn" data-copy="link">Copy link</button></div>
+
+    <h2>3. Install and load settings on the Karoo</h2>
+    <p>With the Karoo connected by USB and <code>adb</code> working (see the guide), run these from the folder where you downloaded <code>karoo-live.apk</code>:</p>
+    <pre id="cmd">Fill in all the details above.</pre>
+    <div class="copyrow"><button class="iconbtn" data-copy="cmd">Copy commands</button></div>
+    <p class="warn">The settings code contains your Firebase password in readable (base64) form. Don't post it publicly. Use a password made just for this, not your Google password.</p>
+    <p class="note">Prefer typing on the Karoo? Open <b>Karoo Live</b> in the app list and fill in the same fields. The share link is then shown on the Karoo with a QR code.</p>
+
+    <footer><a href="./">Karoo Live</a> · <a href="https://github.com/madooroy/karoo-live">GitHub</a></footer>
+  </main>
+
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    const ALPHA = "abcdefghjkmnpqrstuvwxyz23456789";
+    let shareId = "";
+    try { shareId = localStorage.getItem("karoolive.setup.id") || ""; } catch (e) {}
+    if (!/^[a-z0-9]{6,}$/.test(shareId)) {
+      const r = crypto.getRandomValues(new Uint32Array(10));
+      shareId = Array.from(r, (n) => ALPHA[n % ALPHA.length]).join("");
+      try { localStorage.setItem("karoolive.setup.id", shareId); } catch (e) {}
+    }
+
+    function host(input) {
+      let s = (input || "").trim().replace(/^https?:\/\//, "").split("/")[0].split("?")[0].toLowerCase();
+      if (!s) return "";
+      if (!s.includes(".")) s = s.endsWith("-default-rtdb") ? s + ".firebaseio.com" : s + "-default-rtdb.firebaseio.com";
+      return s;
+    }
+    function b64url(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = ""; bytes.forEach((b) => (bin += String.fromCharCode(b)));
+      return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function update() {
+      const h = host($("db").value);
+      const k2t = $("k2t").value.trim().split("/").pop();
+      if (h) {
+        const db = h.endsWith("-default-rtdb.firebaseio.com") ? h.replace("-default-rtdb.firebaseio.com", "") : h;
+        const base = new URL("./", location.href).href;
+        $("link").textContent = `${base}?db=${encodeURIComponent(db)}&id=${shareId}` + (k2t ? `&k2t=${encodeURIComponent(k2t)}` : "");
+      } else {
+        $("link").textContent = "Fill in the database URL first.";
+      }
+      const cfg = {
+        db: h, key: $("key").value.trim(), email: $("email").value.trim(), password: $("password").value,
+        name: $("name").value.trim(), interval: String($("interval").value || 15), id: shareId,
+      };
+      if (k2t) cfg.k2t = k2t;
+      if (cfg.db && cfg.key && cfg.email && cfg.password) {
+        $("cmd").textContent =
+          "adb install -r karoo-live.apk\n" +
+          "adb shell am start -n io.github.madooroy.karoolive/.MainActivity --es config " + b64url(JSON.stringify(cfg));
+      } else {
+        $("cmd").textContent = "Fill in all the details above.";
+      }
+    }
+    document.querySelectorAll("#f input").forEach((i) => i.addEventListener("input", update));
+    document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+      const text = $(b.dataset.copy).textContent;
+      try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; } catch (e) { prompt("Copy:", text); }
+      setTimeout(() => (b.textContent = b.dataset.copy === "cmd" ? "Copy commands" : "Copy link"), 1500);
+    }));
+    update();
+  })();
+  </script>
+</body>
+</html>

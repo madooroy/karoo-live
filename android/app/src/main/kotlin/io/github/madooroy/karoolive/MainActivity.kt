@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.text.InputType
+import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -32,7 +33,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.text.DateFormat
 import java.util.Date
@@ -40,8 +45,9 @@ import java.util.Date
 /**
  * Settings screen, built in code to keep the app tiny. Can also be configured from a computer:
  *
- * adb shell am start -n io.github.madooroy.karoolive/.MainActivity --es db my-project --es key AIza... \
- *   --es email me@example.com --es password secret --es name "Marc"
+ * adb shell am start -n io.github.madooroy.karoolive/.MainActivity --es config <code from setup page>
+ *
+ * (Individual extras db, key, email, password, name, interval, k2t, id also work.)
  */
 class MainActivity : Activity() {
     private lateinit var settings: Settings
@@ -98,14 +104,30 @@ class MainActivity : Activity() {
 
     private fun importFromIntent(intent: Intent?) {
         val extras = intent?.extras ?: return
+        // "config" is a base64url JSON blob made by the setup page (survives any shell's quoting).
+        val values = mutableMapOf<String, String>()
+        extras.getString("config")?.let { token ->
+            try {
+                val text = String(Base64.decode(token.trim(), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING), Charsets.UTF_8)
+                Json.parseToJsonElement(text).jsonObject.forEach { (k, v) ->
+                    (v as? JsonPrimitive)?.contentOrNull?.let { values[k] = it }
+                }
+            } catch (e: Exception) {
+                toast("Couldn't read the setup code: ${e.message}")
+            }
+        }
+        listOf("db", "key", "email", "password", "name", "k2t", "interval", "id").forEach { k ->
+            extras.getString(k)?.let { values[k] = it }
+        }
         var changed = false
-        extras.getString("db")?.let { settings.databaseUrl = it; changed = true }
-        extras.getString("key")?.let { settings.apiKey = it; changed = true }
-        extras.getString("email")?.let { settings.email = it; changed = true }
-        extras.getString("password")?.let { settings.password = it; changed = true }
-        extras.getString("name")?.let { settings.riderName = it; changed = true }
-        extras.getString("k2t")?.let { settings.k2tId = it; changed = true }
-        extras.getString("interval")?.toIntOrNull()?.let { settings.intervalSeconds = it; changed = true }
+        values["db"]?.let { settings.databaseUrl = it; changed = true }
+        values["key"]?.let { settings.apiKey = it; changed = true }
+        values["email"]?.let { settings.email = it; changed = true }
+        values["password"]?.let { settings.password = it; changed = true }
+        values["name"]?.let { settings.riderName = it; changed = true }
+        values["k2t"]?.let { settings.k2tId = it; changed = true }
+        values["interval"]?.toIntOrNull()?.let { settings.intervalSeconds = it; changed = true }
+        values["id"]?.let { if (settings.setShareId(it)) { settings.activeRideShareId = ""; changed = true } }
         if (changed) {
             settings.refreshToken = ""
             Toast.makeText(this, "Settings imported", Toast.LENGTH_SHORT).show()

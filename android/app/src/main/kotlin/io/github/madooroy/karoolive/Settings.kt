@@ -53,6 +53,14 @@ class Settings(context: Context) {
             return fresh
         }
 
+    /** Accepts an id chosen elsewhere (e.g. by the setup page) if it looks safe. */
+    fun setShareId(id: String): Boolean {
+        val clean = id.trim()
+        if (!Regex("^[A-Za-z0-9_-]{6,64}$").matches(clean)) return false
+        prefs.edit().putString("shareId", clean).apply()
+        return true
+    }
+
     fun regenerateShareId(): String {
         val fresh = newShareId()
         prefs.edit().putString("shareId", fresh).apply()

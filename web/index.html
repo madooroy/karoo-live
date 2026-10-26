@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Karoo Live</title>
+  <meta name="description" content="Follow a Hammerhead Karoo ride live: map, speed, power, cadence and heart rate.">
+  <meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap" id="live" hidden>
+    <header class="top">
+      <h1 id="rider">Rider</h1>
+      <span class="pill" id="status"><span class="dot"></span>Waiting</span>
+      <span class="spacer"></span>
+      <button class="iconbtn" id="units" title="Switch units">km</button>
+      <button class="iconbtn" id="copy">Share</button>
+    </header>
+    <div class="sub" id="sub">Connecting…</div>
+
+    <div class="grid-main">
+      <section class="card mapcard" aria-label="Map">
+        <div id="map"></div>
+        <div class="map-legend">
+          <span><i></i>Ridden</span>
+          <span id="legend-route" hidden><i class="route"></i>Planned route</span>
+        </div>
+        <button class="iconbtn recenter" id="recenter" hidden>Recenter</button>
+      </section>
+
+      <section aria-label="Live numbers">
+        <div class="metrics-primary" id="metrics-primary"></div>
+        <div class="card metrics-secondary" id="metrics-secondary" style="margin-top:10px"></div>
+      </section>
+
+      <section class="card charts" id="charts" hidden aria-label="Ride charts">
+        <div class="charts-head">
+          <h2>This ride</h2>
+          <span class="hint" id="chart-where"></span>
+        </div>
+        <div id="charts-body"></div>
+        <details class="table">
+          <summary>Show as a table</summary>
+          <table>
+            <thead><tr><th>Where</th><th>Speed</th><th>Power</th><th>HR</th><th>Cad</th><th>Elev</th></tr></thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </details>
+      </section>
+    </div>
+
+    <footer>
+      Live from the rider's Hammerhead Karoo · <a href="https://github.com/madooroy/karoo-live">Karoo Live</a> (open source)
+    </footer>
+  </main>
+
+  <main class="wrap" id="landing" hidden>
+    <div class="landing">
+      <h1>Karoo Live</h1>
+      <p>Follow a Hammerhead Karoo ride as it happens: the map, plus 3-second speed, power, cadence and heart rate.</p>
+      <p>Riders share a link that opens straight to their ride. If you have a link, paste it here. You can also paste a KarooTracker id to see Hammerhead's basic live tracking.</p>
+      <form id="open-form">
+        <input id="open-input" placeholder="Paste a Karoo Live link or KarooTracker id" autocomplete="off">
+        <button type="submit">Open</button>
+      </form>
+      <p><a href="setup.html">Set up live tracking on your own Karoo →</a></p>
+    </div>
+    <footer><a href="https://github.com/madooroy/karoo-live">github.com/madooroy/karoo-live</a></footer>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
