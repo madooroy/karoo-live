@@ -195,7 +195,7 @@
       const ol = $("#build-list"); ol.replaceChildren();
       list.forEach((s, i) => {
         const li = el("li");
-        const sw = el("span", "swatch", String(i + 1));
+        const sw = el("span", "bswatch", String(i + 1));
         const pal = PALETTE[i % PALETTE.length];
         sw.style.background = pal.c; sw.style.color = pal.ink;
         const txt = el("span", "build-item");
@@ -633,10 +633,10 @@
 
     // Live numbers for the details panel. A sensor shows only if this rider has sent it this ride.
     const DETAIL = [
-      { key: "spd", label: "Speed", instant: true, always: true, fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; } },
-      { key: "pwr", label: "Power 3s", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "W"] },
-      { key: "hr", label: "Heart rate", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "bpm"] },
-      { key: "cad", label: "Cadence", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "rpm"] },
+      { key: "spd", color: "spd", label: "Speed", instant: true, always: true, fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; } },
+      { key: "pwr", color: "pwr", label: "Power 3s", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "W"] },
+      { key: "hr", color: "hr", label: "Heart rate", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "bpm"] },
+      { key: "cad", color: "cad", label: "Cadence", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "rpm"] },
       { key: "dist", label: "Distance", fmt: (v) => fmtDist(v) },
       { key: "_togo", label: "To go", fmt: (v) => fmtDist(v) },
       { key: "rt", label: "Moving", fmt: (v) => [fmtDuration(v), ""] },
@@ -645,7 +645,7 @@
       { key: "avgPwr", label: "Avg power", fmt: (v) => [fmtNum(v, 0), "W"] },
       { key: "np", label: "NP", fmt: (v) => [fmtNum(v, 0), "W"] },
       { key: "gain", label: "Climbed", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; } },
-      { key: "alt", label: "Elevation", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; } },
+      { key: "alt", color: "alt", label: "Elevation", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; } },
       { key: "grade", label: "Grade", instant: true, fmt: (v) => [fmtNum(v, 1), "%"] },
       { key: "climbLeft", label: "Climb left", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; } },
       { key: "temp", label: "Temp", fmt: (v) => { const [x, u] = U.temp(v); return [fmtNum(x, 0), u]; } },
@@ -664,7 +664,10 @@
         if (!d.always && !d.sensor && v == null) return;  // nothing to show
         if (d.instant && !live) v = null;                 // instant values mean nothing once stopped or lost
         const t = el("div", "rm");
-        t.append(el("div", "rl", d.label));
+        const rl = el("div", "rl");
+        if (d.color) { const sw = el("i", "swatch"); sw.style.background = `var(--c-${d.color})`; sw.setAttribute("aria-hidden", "true"); rl.append(sw); }
+        rl.append(d.label);
+        t.append(rl);
         const val = el("div", "rv");
         if (v == null) { val.textContent = "—"; val.classList.add("na"); }
         else { const [x, u] = d.fmt(v); val.append(x); if (u) val.append(el("span", "u", u)); }

@@ -266,6 +266,8 @@ def test_group(browser, base):
     page.wait_for_selector(".rdetail")
     labels = page.eval_on_selector_all(".rdetail .rl", "els => els.map(e => e.textContent)")
     print("    Ben details:", labels)
+    sw = page.evaluate("getComputedStyle(document.querySelector('.rdetail .rl .swatch')).backgroundColor")
+    check(sw == "rgb(42, 120, 214)", f"detail tiles use the viewer's metric colors (speed swatch {sw})")
     check("Heart rate" in labels and "Power 3s" not in labels and "Cadence" not in labels, "Ben's details show HR but no power/cadence")
     check(page.locator(".gm.sel").count() == 1, "selected rider highlighted on the map")
     page.click("#riders .rider-row:has(.rname:text-is('Cara')) .rhead")
@@ -342,6 +344,9 @@ def test_group_dark_desktop(browser, base):
     page.reload()
     page.wait_for_function("document.querySelectorAll('#riders .rider-row').length === 9", timeout=15000)
     check(page.evaluate("document.documentElement.dataset.theme") == "light", "theme choice remembered")
+    page.click("#theme")
+    hr = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--c-hr').trim()")
+    check(hr == "#e66767", f"manual dark theme gets the dark metric colors ({hr})")
     check(not errors, f"no console errors ({errors[:3]})")
     ctx.close()
 

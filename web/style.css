@@ -38,11 +38,6 @@
     --track: #3987e5;
     --route: #d95926;
     --series: #3987e5;
-  --c-alt: #2fa043;
-  --c-spd: #3987e5;
-  --c-pwr: #9085e9;
-  --c-hr: #e66767;
-  --c-cad: #c98500;
     --c-alt: #2fa043;
     --c-spd: #3987e5;
     --c-pwr: #9085e9;
@@ -68,6 +63,11 @@
   --track: #3987e5;
   --route: #d95926;
   --series: #3987e5;
+  --c-alt: #2fa043;
+  --c-spd: #3987e5;
+  --c-pwr: #9085e9;
+  --c-hr: #e66767;
+  --c-cad: #c98500;
   --live: #ff453a;
   --warn: #e0a030;
   --ok: #36b37e;

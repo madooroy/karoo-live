@@ -125,8 +125,9 @@
 @media (min-width: 900px) and (max-width: 1100px) { .rgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .rm { min-width: 0; }
 .rl { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rl .swatch { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; position: relative; top: -1px; }
 .rv { font: 600 26px/1.05 var(--num); font-variant-numeric: tabular-nums; white-space: nowrap; }
-@media (max-width: 480px) { .rv { font-size: 22px; } }
+@media (max-width: 480px) { .rv { font-size: 22px; } .rl { letter-spacing: .02em; } .rl .swatch { width: 9px; margin-right: 4px; } .rgrid { gap: 8px 8px; } }
 .rv .u { font: 600 12px var(--ui); color: var(--text-3); margin-left: 3px; }
 .rv.na { color: var(--text-3); }
 .rnote { font-size: 12px; color: var(--text-3); margin: 10px 0 0; line-height: 1.5; }
@@ -156,7 +157,7 @@
 .build-list { list-style: none; padding: 0; margin: 12px 0 0; }
 .build-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--grid); }
 .build-list li:last-child { border-bottom: 1px solid var(--grid); }
-.swatch { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 13px var(--num); }
+.bswatch { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 13px var(--num); }
 .build-item { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .build-item small { color: var(--text-3); }
 .gbuild button.linkbtn {
