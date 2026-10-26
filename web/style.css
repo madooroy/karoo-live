@@ -10,6 +10,11 @@
   --track: #2a78d6;
   --route: #eb6834;
   --series: #2a78d6;
+  --c-alt: #008300;
+  --c-spd: #2a78d6;
+  --c-pwr: #9b3fc1;
+  --c-hr: #e34948;
+  --c-cad: #b97a00;
   --live: #e0352b;
   --warn: #b26a00;
   --ok: #12804f;
@@ -33,6 +38,16 @@
     --track: #3987e5;
     --route: #d95926;
     --series: #3987e5;
+  --c-alt: #2fa043;
+  --c-spd: #3987e5;
+  --c-pwr: #9085e9;
+  --c-hr: #e66767;
+  --c-cad: #c98500;
+    --c-alt: #2fa043;
+    --c-spd: #3987e5;
+    --c-pwr: #9085e9;
+    --c-hr: #e66767;
+    --c-cad: #c98500;
     --live: #ff453a;
     --warn: #e0a030;
     --ok: #36b37e;
@@ -242,6 +257,8 @@ a { color: var(--track); }
   padding: 4px 14px 0; font-size: 12px; font-weight: 600;
   letter-spacing: .05em; text-transform: uppercase; color: var(--text-2);
 }
+.chart-title .swatch { display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--chart-color); vertical-align: middle; margin-right: 7px; position: relative; top: -2px; }
+.metric .label .swatch { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; position: relative; top: -1px; }
 .chart-title .range { margin-left: 8px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-3); }
 .chart-title .readout {
   font-family: var(--num); font-size: 18px; letter-spacing: 0; text-transform: none;
@@ -251,8 +268,8 @@ a { color: var(--track); }
 .chart svg { display: block; width: 100%; height: 86px; touch-action: pan-y; }
 .chart svg .gridline { stroke: var(--grid); stroke-width: 1; }
 .chart svg .axis-label { fill: var(--text-3); font: 500 10px var(--ui); }
-.chart svg .series { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.chart svg .area { fill: var(--series); opacity: .1; }
+.chart svg .series { fill: none; stroke: var(--chart-color, var(--series)); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart svg .area { fill: var(--chart-color, var(--series)); opacity: .12; }
 .chart svg .cross { stroke: var(--text-2); stroke-width: 1; }
 .chart svg .cross-dot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
 .chart .empty { padding: 18px 14px; color: var(--text-3); font-size: 13px; }

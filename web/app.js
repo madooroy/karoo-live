@@ -316,12 +316,12 @@
 
   // ---------------------------------------------------------------- metrics
   const PRIMARY = [
-    { key: "spd", label: "Speed", tag: "3s", fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; },
+    { key: "spd", color: "spd", label: "Speed", tag: "3s", fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; },
       foot: (c) => c.avgSpd != null ? "avg " + U.speed(c.avgSpd).map((x, i) => i ? x : fmtNum(x, 1)).join(" ") : "" },
-    { key: "pwr", label: "Power", tag: "3s", fmt: (v) => [fmtNum(v, 0), "W"],
+    { key: "pwr", color: "pwr", label: "Power", tag: "3s", fmt: (v) => [fmtNum(v, 0), "W"],
       foot: (c) => [c.avgPwr != null ? `avg ${fmtNum(c.avgPwr, 0)} W` : "", c.np != null ? `NP ${fmtNum(c.np, 0)} W` : ""].filter(Boolean).join(" · ") },
-    { key: "hr", label: "Heart rate", tag: "", fmt: (v) => [fmtNum(v, 0), "bpm"], foot: () => "" },
-    { key: "cad", label: "Cadence", tag: "3s", fmt: (v) => [fmtNum(v, 0), "rpm"], foot: () => "" },
+    { key: "hr", color: "hr", label: "Heart rate", tag: "", fmt: (v) => [fmtNum(v, 0), "bpm"], foot: () => "" },
+    { key: "cad", color: "cad", label: "Cadence", tag: "3s", fmt: (v) => [fmtNum(v, 0), "rpm"], foot: () => "" },
   ];
   const SECONDARY = [
     { key: "dist", label: "Distance", fmt: (v) => fmtDist(v) },
@@ -340,7 +340,10 @@
     const el = document.createElement("div");
     el.className = "metric " + (extraClass || "");
     const label = document.createElement("div"); label.className = "label";
-    label.append(def.label);
+    const left = document.createElement("span");
+    if (def.color) { const sw = document.createElement("i"); sw.className = "swatch"; sw.style.background = `var(--c-${def.color})`; sw.setAttribute("aria-hidden", "true"); left.append(sw); }
+    left.append(def.label);
+    label.append(left);
     if (def.tag) { const s = document.createElement("small"); s.textContent = def.tag; label.append(s); }
     const val = document.createElement("div"); val.className = "value";
     if (value == null) { val.textContent = "—"; val.classList.add("na"); }
@@ -430,8 +433,11 @@
       if (open && def.area) area += `L${lastX.toFixed(1)},${H - padB}L${segStart.toFixed(1)},${H - padB}Z`;
 
       const wrap = document.createElement("div"); wrap.className = "chart";
+      wrap.style.setProperty("--chart-color", `var(--c-${def.key})`);
       const title = document.createElement("div"); title.className = "chart-title";
-      const name = document.createElement("span"); name.textContent = def.label;
+      const name = document.createElement("span");
+      const sw = document.createElement("i"); sw.className = "swatch"; sw.setAttribute("aria-hidden", "true");
+      name.append(sw, def.label);
       const range = document.createElement("small"); range.className = "range";
       range.textContent = `${def.fmt(vmin)[0]}–${def.fmt(vmax).join(" ")}`;
       name.append(range);
