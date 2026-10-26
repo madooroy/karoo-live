@@ -127,7 +127,7 @@ class Settings(context: Context) {
         }
 
         fun normalizeDatabaseHost(input: String): String {
-            var s = input.trim()
+            var s = input.trim().lowercase()
             if (s.isEmpty()) return ""
             s = s.removePrefix("https://").removePrefix("http://")
             s = s.substringBefore("/").substringBefore("?")
@@ -135,7 +135,7 @@ class Settings(context: Context) {
             if (!s.contains(".")) {
                 s = if (s.endsWith("-default-rtdb")) "$s.firebaseio.com" else "$s$DEFAULT_SUFFIX"
             }
-            return s.lowercase()
+            return s
         }
     }
 }

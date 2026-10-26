@@ -107,7 +107,7 @@
     }
 
     function host(input) {
-      let s = (input || "").trim().replace(/^https?:\/\//, "").split("/")[0].split("?")[0].toLowerCase();
+      let s = (input || "").trim().replace(/^https?:\/\//i, "").split("/")[0].split("?")[0].toLowerCase();
       if (!s) return "";
       if (!s.includes(".")) s = s.endsWith("-default-rtdb") ? s + ".firebaseio.com" : s + "-default-rtdb.firebaseio.com";
       return s;

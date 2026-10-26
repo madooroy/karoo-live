@@ -18,7 +18,7 @@
   const SAFE_ID = /^[A-Za-z0-9_-]{4,64}$/;
   function normalizeHost(input) {
     if (!input) return "";
-    let s = input.trim().replace(/^https?:\/\//, "").split("/")[0].split("?")[0].toLowerCase();
+    let s = input.trim().replace(/^https?:\/\//i, "").split("/")[0].split("?")[0].toLowerCase();
     if (!s.includes(".")) s = s.endsWith("-default-rtdb") ? s + ".firebaseio.com" : s + "-default-rtdb.firebaseio.com";
     return /^[a-z0-9.-]+$/.test(s) && (s.endsWith(".firebaseio.com") || s.endsWith(".firebasedatabase.app")) ? s : "";
   }
