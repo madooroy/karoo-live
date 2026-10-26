@@ -28,13 +28,23 @@ class FirebaseClient(private val settings: Settings, private val http: Http) {
         private set
 
     fun resetAuth() {
+        tokenFor = ""
         idToken = null
         idTokenExpiresAt = 0L
         uid = null
         settings.refreshToken = ""
     }
 
+    private var tokenFor = ""
+
     private suspend fun token(): String {
+        val key = "${settings.databaseHost}|${settings.apiKey}|${settings.email}|${settings.password.hashCode()}"
+        if (key != tokenFor) {
+            // Settings changed since this token was issued (possibly from the settings screen).
+            idToken = null
+            uid = null
+            tokenFor = key
+        }
         val now = System.currentTimeMillis()
         idToken?.let { if (now < idTokenExpiresAt - 60_000) return it }
         if (settings.refreshToken.isNotBlank() && settings.authEmail == settings.email) {

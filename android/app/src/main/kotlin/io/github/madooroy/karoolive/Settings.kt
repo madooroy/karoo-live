@@ -85,6 +85,11 @@ class Settings(context: Context) {
         get() = prefs.getString("activeRideShareId", "") ?: ""
         set(v) = prefs.edit().putString("activeRideShareId", v).apply()
 
+    /** Whether the Firebase node for the active ride has been created yet (PUT succeeded). */
+    var rideNodeCreated: Boolean
+        get() = prefs.getBoolean("rideNodeCreated", false)
+        set(v) = prefs.edit().putBoolean("rideNodeCreated", v).apply()
+
     // ---- status shown on the settings screen ----
     var lastStatus: String
         get() = prefs.getString("lastStatus", "Not started yet") ?: ""

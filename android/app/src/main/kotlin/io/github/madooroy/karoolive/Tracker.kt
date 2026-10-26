@@ -36,7 +36,7 @@ import kotlin.math.roundToLong
  * /live/<shareId>/units       "imperial" | "metric" (display preference)
  * /live/<shareId>/state       "recording" | "paused" | "idle"
  * /live/<shareId>/startedAt   ms, /updatedAt server ms, /endedAt server ms
- * /live/<shareId>/cur         latest values {lat,lng,brg,alt,spd,cad,pwr,hr,dist,el,rt,gain,avgSpd,avgPwr,np,bat,grade,temp,toGo,climbLeft}
+ * /live/<shareId>/cur         latest values {lat,lng,brg,alt,spd,cad,pwr,hr,dist,el (total ms),rt (recording ms),gain,avgSpd,avgPwr,np,bat,grade,temp,toGo,climbLeft}
  * /live/<shareId>/route       {poly (precision 5), name, dist} while navigating
  * /live/<shareId>/track/p<ms> {t,lat,lng,alt,spd,cad,pwr,hr,d} one point per update
  * ```
@@ -50,7 +50,9 @@ class Tracker(
     private val firebase = FirebaseClient(settings, http)
 
     private val latest = ConcurrentHashMap<String, Map<String, Double>>()
-    @Volatile private var rideState: RideState = RideState.Idle
+    @Volatile private var rideState: RideState? = null // unknown until the Karoo system reports it
+    private var lastSeenActive: Boolean? = null
+    private var startupWaits = 0
     @Volatile private var units = "metric"
     @Volatile private var route: JsonElement = JsonNull
     @Volatile private var routeDirty = false
@@ -70,7 +72,7 @@ class Tracker(
             }
         }
         consumerIds += karooSystem.addConsumer<RideState> { state ->
-            val changed = state::class != rideState::class
+            val changed = rideState == null || state::class != rideState!!::class
             rideState = state
             if (changed) wake.trySend(Unit)
         }
@@ -115,31 +117,30 @@ class Tracker(
     }
 
     private suspend fun tick() {
-        if (!settings.enabled) {
-            settings.setStatus("Paused in settings")
+        val state = rideState
+        if (state == null) {
+            settings.setStatus("Waiting for the Karoo system")
             return
         }
         if (!settings.isConfigured) {
             settings.setStatus("Not set up yet: open Karoo Live settings")
             return
         }
-        val state = rideState
         val active = state is RideState.Recording || state is RideState.Paused
-        val shareId = settings.shareId
+        val wasActive = lastSeenActive
+        lastSeenActive = active
 
         if (!active) {
-            if (settings.activeRideStartedAt != 0L) {
-                // Ride just ended (or app restarted after one): mark it finished.
-                send(shareId) {
-                    put("state", "idle")
-                    put("updatedAt", FirebaseClient.SERVER_TIME)
-                    put("endedAt", FirebaseClient.SERVER_TIME)
-                }?.let {
-                    settings.activeRideStartedAt = 0L
-                    settings.activeRideShareId = ""
-                    settings.setStatus("Ride finished, tracking stopped")
-                }
+            // Ride ended (or we restarted after one): mark it finished, even if sharing is switched off.
+            if (settings.activeRideStartedAt != 0L && endRide()) {
+                settings.setStatus("Ride finished, tracking stopped")
+            } else if (!settings.enabled) {
+                settings.setStatus("Sharing is switched off")
             }
+            return
+        }
+        if (!settings.enabled) {
+            settings.setStatus("Sharing is switched off")
             return
         }
 
@@ -154,8 +155,25 @@ class Tracker(
         }
 
         val now = System.currentTimeMillis()
-        if (settings.activeRideStartedAt == 0L || settings.activeRideShareId != shareId) {
-            if (!startRide(shareId, now)) return
+        val shareId = settings.shareId
+        var newRide = settings.activeRideStartedAt == 0L
+        if (!newRide) {
+            when {
+                // The share link was changed: close the old page, start fresh on the new one.
+                settings.activeRideShareId != shareId -> newRide = true
+                // This service saw the Karoo go idle and start again, so the earlier end update never got out.
+                wasActive == false -> newRide = true
+                // Service just started during a ride: is it the ride we were tracking, or a new one?
+                wasActive == null -> {
+                    val totalMs = value(DataType.Type.RIDE_TIME, DataType.Field.RIDE_TIME)
+                    if (totalMs == null && startupWaits++ < 3) return // give the ride clock a moment to arrive
+                    if (totalMs != null && now - settings.activeRideStartedAt > totalMs + 10 * 60_000) newRide = true
+                }
+            }
+        }
+        if (newRide) {
+            if (settings.activeRideStartedAt != 0L) endRide() // best effort for the previous ride
+            beginRide(shareId, now)
         }
 
         val cur = currentValues()
@@ -163,6 +181,26 @@ class Tracker(
             pendingTrack["p$now"] = trackPoint(now, cur)
             while (pendingTrack.size > MAX_PENDING) pendingTrack.remove(pendingTrack.keys.first())
         }
+
+        if (!settings.rideNodeCreated) {
+            val node = buildJsonObject {
+                put("name", riderName())
+                put("units", units)
+                put("state", "recording")
+                put("startedAt", settings.activeRideStartedAt)
+                put("updatedAt", FirebaseClient.SERVER_TIME)
+                put("route", route)
+            }
+            try {
+                firebase.put("live/$shareId", node) // replaces the previous ride on this link, clearing its track
+                settings.rideNodeCreated = true
+                routeDirty = false
+            } catch (e: Exception) {
+                fail(e) // points stay queued until the connection is back
+                return
+            }
+        }
+
         val sentPoints = pendingTrack.keys.toList()
         val includeRoute = routeDirty
         val ok = send(shareId) {
@@ -181,27 +219,32 @@ class Tracker(
         }
     }
 
-    private suspend fun startRide(shareId: String, now: Long): Boolean {
+    private fun beginRide(shareId: String, now: Long) {
         pendingTrack.clear()
         notifiedErrorThisRide = false
         routeDirty = false
-        val node = buildJsonObject {
-            put("name", riderName())
-            put("units", units)
-            put("state", "recording")
-            put("startedAt", now)
-            put("updatedAt", FirebaseClient.SERVER_TIME)
-            put("route", route)
+        settings.activeRideStartedAt = now
+        settings.activeRideShareId = shareId
+        settings.rideNodeCreated = false
+    }
+
+    /** Marks the tracked ride finished (sending any queued points). Returns true once it's done. */
+    private suspend fun endRide(): Boolean {
+        val target = settings.activeRideShareId.ifBlank { settings.shareId }
+        if (settings.rideNodeCreated) {
+            val sentPoints = pendingTrack.keys.toList()
+            send(target) {
+                put("state", "idle")
+                put("updatedAt", FirebaseClient.SERVER_TIME)
+                put("endedAt", FirebaseClient.SERVER_TIME)
+                sentPoints.forEach { key -> pendingTrack[key]?.let { put("track/$key", it) } }
+            } ?: return false
         }
-        return try {
-            firebase.put("live/$shareId", node) // replaces the previous ride, clearing its track
-            settings.activeRideStartedAt = now
-            settings.activeRideShareId = shareId
-            true
-        } catch (e: Exception) {
-            fail(e)
-            false
-        }
+        pendingTrack.clear()
+        settings.activeRideStartedAt = 0L
+        settings.activeRideShareId = ""
+        settings.rideNodeCreated = false
+        return true
     }
 
     private suspend fun send(shareId: String, build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): Unit? {
@@ -250,8 +293,9 @@ class Tracker(
         value(DataType.Type.SMOOTHED_3S_AVERAGE_POWER, DataType.Field.SMOOTHED_3S_AVERAGE_POWER)?.let { put("pwr", round(it, 0)) }
         value(DataType.Type.HEART_RATE, DataType.Field.HEART_RATE)?.let { put("hr", round(it, 0)) }
         value(DataType.Type.DISTANCE, DataType.Field.DISTANCE)?.let { put("dist", round(it, 0)) }
-        value(DataType.Type.ELAPSED_TIME, DataType.Field.ELAPSED_TIME)?.let { put("el", it.roundToLong()) }
-        value(DataType.Type.RIDE_TIME, DataType.Field.RIDE_TIME)?.let { put("rt", it.roundToLong()) }
+        // Note the SDK naming: RIDE_TIME is total time incl. pauses, ELAPSED_TIME is time spent recording.
+        value(DataType.Type.RIDE_TIME, DataType.Field.RIDE_TIME)?.let { put("el", it.roundToLong()) }
+        value(DataType.Type.ELAPSED_TIME, DataType.Field.ELAPSED_TIME)?.let { put("rt", it.roundToLong()) }
         value(DataType.Type.ELEVATION_GAIN, DataType.Field.ELEVATION_GAIN)?.let { put("gain", round(it, 0)) }
         value(DataType.Type.AVERAGE_SPEED, DataType.Field.AVERAGE_SPEED)?.let { put("avgSpd", round(it, 2)) }
         value(DataType.Type.AVERAGE_POWER, DataType.Field.AVERAGE_POWER)?.let { put("avgPwr", round(it, 0)) }

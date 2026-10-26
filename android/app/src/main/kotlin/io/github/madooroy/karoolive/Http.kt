@@ -38,7 +38,8 @@ class Http(private val karooSystem: KarooSystemService) {
 
         if (karooSystem.connected) {
             val viaKaroo = viaKarooSystem(realMethod, url, headers, body)
-            if (viaKaroo != null && viaKaroo.error == null) return viaKaroo
+            // Any real HTTP status came from the server; only retry directly on transport failures.
+            if (viaKaroo != null && viaKaroo.code > 0) return viaKaroo
             Timber.w("Karoo system HTTP failed (${viaKaroo?.error ?: "timeout"}), trying direct")
         }
         return direct(realMethod, url, headers, body)
@@ -72,7 +73,7 @@ class Http(private val karooSystem: KarooSystemService) {
                     val state = event.state
                     if (state is HttpResponseState.Complete) {
                         val text = state.body?.toString(Charsets.UTF_8) ?: ""
-                        val err = state.error ?: if (state.statusCode <= 0) "no connection" else null
+                        val err = if (state.statusCode <= 0) (state.error ?: "no connection") else null
                         finish(HttpResult(state.statusCode, text, err))
                     }
                 }
