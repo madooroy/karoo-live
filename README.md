@@ -22,7 +22,7 @@ Your data goes to **your own free Firebase database**. There's no shared server,
 
 ```
 Karoo (Karoo Live extension)  ──every 15 s──▶  your Firebase Realtime Database  ──live stream──▶  viewer page
-   reads ride data via                            (free Spark plan,                               madooroy.github.io/karoo-live
+   reads ride data via                            (free Spark plan,                               mybikeride.live              
    Hammerhead's official SDK                       only your Karoo can write)                     (static GitHub Pages)
 ```
 
@@ -35,7 +35,7 @@ The viewer can also show [KarooTracker](https://k2tracker.drakey.co.uk) feeds (H
 ## Get started
 
 1. **[Follow the setup guide](docs/SETUP.md)** (about 20–30 minutes once): create a free Firebase project, install the APK, load your settings.
-2. Use the **[setup page](https://madooroy.github.io/karoo-live/setup.html)** to get your share link and a one-line install command.
+2. Use the **[setup page](https://mybikeride.live/setup.html)** to get your share link and a one-line install command.
 3. Ride. Send people your link.
 
 ## Limitations

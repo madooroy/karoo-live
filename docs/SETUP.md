@@ -87,7 +87,7 @@ After installing, **restart the Karoo** so it starts the extension.
 
 ### Easiest: the setup page (computer + USB)
 
-Open **[madooroy.github.io/karoo-live/setup.html](https://madooroy.github.io/karoo-live/setup.html)** and fill in the four values from part A plus your name. It gives you:
+Open **[mybikeride.live/setup.html](https://mybikeride.live/setup.html)** and fill in the four values from part A plus your name. It gives you:
 
 - **Your share link.** Send it to people; it's the same for every ride.
 - **Two adb commands.** Run them with the Karoo plugged in. The second one opens Karoo Live with everything filled in.

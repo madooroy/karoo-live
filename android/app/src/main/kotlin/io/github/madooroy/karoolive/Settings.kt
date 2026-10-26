@@ -122,7 +122,7 @@ class Settings(context: Context) {
         }
 
     companion object {
-        const val VIEWER_BASE = "https://madooroy.github.io/karoo-live/"
+        const val VIEWER_BASE = "https://mybikeride.live/"
         const val DEFAULT_SUFFIX = "-default-rtdb.firebaseio.com"
         private const val ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
 
