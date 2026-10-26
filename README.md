@@ -27,7 +27,7 @@ Karoo (Karoo Live extension)  ──every 15 s──▶  your Firebase Realtime 
 ```
 
 - **`android/`** is a small Karoo extension built on Hammerhead's official [karoo-ext](https://github.com/hammerheadnav/karoo-ext) SDK. While a ride is recording, it sends a snapshot every 15 seconds (adjustable): position, heading, 3s speed, 3s power, 3s cadence, heart rate, distance, times, climbing, grade, temperature, battery, and route progress. If the signal drops, points are queued and sent when it comes back.
-- **`web/`** is the viewer: one static page on GitHub Pages. It streams your ride straight from Firebase, so updates appear within a second of arriving.
+- **`web/`** is the viewer: one static page on GitHub Pages. It subscribes to your ride with the Firebase web SDK, so updates appear within a second of arriving, and draws the map with MapLibre (smooth vector maps, no API key).
 - **`firebase/database.rules.json`** holds the database rules. Anyone with the link can read one ride; only your Karoo's login can write.
 
 The viewer can also show [KarooTracker](https://k2tracker.drakey.co.uk) feeds (Hammerhead's own live tracking) with `?k2t=<id>`, either alone or as a fallback alongside Karoo Live.
@@ -66,6 +66,7 @@ APKs are signed with a key committed in `android/app/` so every build installs o
 
 - [hammerheadnav/karoo-ext](https://github.com/hammerheadnav/karoo-ext) (Apache 2.0), vendored in `android/karoo-ext/`
 - Inspired by KarooTracker by drakey
-- Maps © OpenStreetMap contributors, [Leaflet](https://leafletjs.com)
+- Maps: [MapLibre GL JS](https://maplibre.org), vector tiles by [OpenFreeMap](https://openfreemap.org), data © OpenStreetMap contributors
+- Live data: [Firebase](https://firebase.google.com) Realtime Database web SDK
 
 Licensed under the Apache License 2.0.

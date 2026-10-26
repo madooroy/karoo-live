@@ -72,51 +72,26 @@
   }
 
   // ---------------------------------------------------------------- data sources
-  /** Streams /live/<id> from a public-read Firebase RTDB over Server-Sent Events. */
-  function firebaseSource(host, id, onData, onProblem) {
-    const url = `https://${host}/live/${encodeURIComponent(id)}.json`;
-    let tree;
-    let failures = 0;
-    let polling = false;
-
-    function setPath(path, data) {
-      const parts = path.split("/").filter(Boolean);
-      if (parts.length === 0) { tree = data; return; }
-      if (tree === null || typeof tree !== "object") tree = {};
-      let node = tree;
-      for (let i = 0; i < parts.length - 1; i++) {
-        if (node[parts[i]] === null || typeof node[parts[i]] !== "object") node[parts[i]] = {};
-        node = node[parts[i]];
-      }
-      const last = parts[parts.length - 1];
-      if (data === null) delete node[last]; else node[last] = data;
+  /** Subscribes to /live/<id> with the official Firebase SDK (handles reconnects and deltas). */
+  const FIREBASE = "https://www.gstatic.com/firebasejs/12.19.0/";
+  async function firebaseSource(host, id, onData, onProblem, onConnection) {
+    let db, initializeApp;
+    try {
+      [{ initializeApp }, db] = await Promise.all([import(FIREBASE + "firebase-app.js"), import(FIREBASE + "firebase-database.js")]);
+    } catch (e) {
+      onProblem("Couldn't load the live data library. Check your connection and reload.");
+      return;
     }
-
-    function poll() {
-      polling = true;
-      fetch(url, { cache: "no-store" })
-        .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-        .then((d) => { tree = d; onData(tree); })
-        .catch((e) => onProblem("Can't reach the rider's database (" + e.message + ")"))
-        .finally(() => setTimeout(poll, 10000));
-    }
-
-    if (!("EventSource" in window)) { poll(); return; }
-    const es = new EventSource(url);
-    const handle = (kind) => (e) => {
-      failures = 0;
-      const msg = JSON.parse(e.data);
-      if (kind === "put") setPath(msg.path, msg.data);
-      else Object.keys(msg.data || {}).forEach((k) => setPath(msg.path.replace(/\/$/, "") + "/" + k, msg.data[k]));
-      onData(tree === undefined ? null : tree);
-    };
-    es.addEventListener("put", handle("put"));
-    es.addEventListener("patch", handle("patch"));
-    es.addEventListener("cancel", () => { es.close(); onProblem("This link isn't readable — check the database rules."); });
-    es.onerror = () => {
-      failures++;
-      if (failures >= 4 && !polling) { es.close(); poll(); }
-    };
+    const app = initializeApp({ databaseURL: `https://${host}` }, "karoo-live");
+    const database = db.getDatabase(app);
+    db.onValue(
+      db.ref(database, `live/${id}`),
+      (snap) => onData(snap.val()),
+      (err) => onProblem(/permission/i.test(err && (err.code || err.message) || "")
+        ? "This link isn't readable. The rider may need to check their database rules."
+        : "Can't reach the rider's database."),
+    );
+    db.onValue(db.ref(database, ".info/connected"), (snap) => onConnection(snap.val() === true));
   }
 
   /** Polls a KarooTracker feed (a copy of Hammerhead's live tracking). */
@@ -219,6 +194,7 @@
   $("#live").hidden = false;
   let fbData = null, k2tData = null, problem = "", model = null;
   let gotFirst = false;
+  let connected = null; // Firebase connection state (null until known)
 
   function update() {
     model = merge(fbData, k2tData);
@@ -226,39 +202,74 @@
   }
 
   if (dbHost && shareId) {
-    firebaseSource(dbHost, shareId, (tree) => { gotFirst = true; problem = ""; fbData = fromFirebase(tree); update(); },
-      (msg) => { problem = msg; render(); });
+    firebaseSource(dbHost, shareId,
+      (tree) => { gotFirst = true; problem = ""; fbData = fromFirebase(tree); update(); },
+      (msg) => { problem = msg; render(); },
+      (isUp) => { connected = isUp; renderStatus(); });
   }
   if (k2tId) k2tSource(k2tId, (d) => { gotFirst = true; k2tData = fromK2t(d); update(); });
 
   setInterval(renderStatus, 1000);
 
   // ---------------------------------------------------------------- map
-  let map, trackLine, routeLine, riderMarker, hoverMarker, follow = true, fitted = false;
-  function initMap() {
-    if (map || !window.L) return;
-    map = L.map("map", { zoomControl: true, attributionControl: true });
-    // OpenStreetMap's standard tiles: free with attribution, no key. Dark mode inverts them in CSS.
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
-    const css = getComputedStyle(document.documentElement);
-    routeLine = L.polyline([], { color: css.getPropertyValue("--route").trim(), weight: 4, opacity: .85, dashArray: "8 8" }).addTo(map);
-    trackLine = L.polyline([], { color: css.getPropertyValue("--track").trim(), weight: 5, opacity: .95 }).addTo(map);
-    map.on("dragstart", () => { follow = false; $("#recenter").hidden = false; });
-    map.setView([40, -40], 2);
+  // Vector maps from OpenFreeMap (free, no key) drawn with MapLibre GL.
+  const STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
+  const STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
+  const EMPTY_LINE = { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } };
+  let map, mapReady = false, riderMarker, riderEl, hoverMarker, follow = true, fitted = false;
+
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function isDark() {
+    const t = document.documentElement.dataset.theme;
+    return t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+  function lineOf(points) {
+    return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: points.map(([lat, lng]) => [lng, lat]) } };
   }
 
-  function riderIcon(brg) {
-    const live = css("--live");
-    const html = `<svg class="rider-arrow" width="34" height="34" viewBox="0 0 34 34" style="transform: rotate(${brg || 0}deg)">
-      <circle cx="17" cy="17" r="15" fill="${live}" stroke="#fff" stroke-width="3"/>
-      ${brg != null ? '<path d="M17 7 L23.5 22 L17 18.5 L10.5 22 Z" fill="#fff"/>' : '<circle cx="17" cy="17" r="5" fill="#fff"/>'}
-    </svg>`;
-    return L.divIcon({ html, className: "", iconSize: [34, 34], iconAnchor: [17, 17] });
+  function initMap() {
+    if (map || !window.maplibregl) return;
+    map = new maplibregl.Map({
+      container: "map",
+      style: isDark() ? STYLE_DARK : STYLE_LIGHT,
+      center: [-40, 40],
+      zoom: 1.5,
+      attributionControl: { compact: true },
+      cooperativeGestures: matchMedia("(pointer: coarse)").matches, // two fingers to pan on phones, so the page scrolls
+      dragRotate: false,
+      pitchWithRotate: false,
+    });
+    map.touchZoomRotate.disableRotation();
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+    window.karooLiveMap = map; // handy for debugging in the browser console
+    map.on("load", () => {
+      map.addSource("route", { type: "geojson", data: EMPTY_LINE });
+      map.addSource("track", { type: "geojson", data: EMPTY_LINE });
+      map.addLayer({ id: "route", type: "line", source: "route",
+        layout: { "line-join": "round" },
+        paint: { "line-color": css("--route"), "line-width": 4, "line-opacity": 0.85, "line-dasharray": [2, 1.5] } });
+      map.addLayer({ id: "track-casing", type: "line", source: "track",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": isDark() ? "#0f0f0e" : "#ffffff", "line-width": 9, "line-opacity": 0.9 } });
+      map.addLayer({ id: "track", type: "line", source: "track",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": css("--track"), "line-width": 5 } });
+      mapReady = true;
+      renderMap();
+    });
+    map.on("dragstart", (e) => { if (e.originalEvent) { follow = false; $("#recenter").hidden = false; } });
   }
-  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function setRider(lat, lng, brg) {
+    if (!riderMarker) {
+      riderEl = document.createElement("div");
+      riderEl.className = "rider";
+      riderEl.setAttribute("aria-label", "Rider position");
+      riderMarker = new maplibregl.Marker({ element: riderEl, rotationAlignment: "map" }).setLngLat([lng, lat]).addTo(map);
+    }
+    riderEl.classList.toggle("heading", brg != null);
+    riderMarker.setLngLat([lng, lat]).setRotation(brg || 0);
+  }
 
   function renderMap() {
     initMap();
@@ -267,27 +278,34 @@
     const c = model.cur;
     const hasPos = num(c.lat) != null && num(c.lng) != null;
     if (hasPos && (!pts.length || pts[pts.length - 1][0] !== c.lat || pts[pts.length - 1][1] !== c.lng)) pts.push([c.lat, c.lng]);
-    trackLine.setLatLngs(pts);
-    routeLine.setLatLngs(model.route ? model.route.points : []);
+    const routePts = model.route ? model.route.points : [];
     $("#legend-route").hidden = !model.route;
-    if (hasPos) {
-      const ll = [c.lat, c.lng];
-      if (!riderMarker) riderMarker = L.marker(ll, { icon: riderIcon(num(c.brg)), zIndexOffset: 1000, keyboard: false }).addTo(map);
-      else { riderMarker.setLatLng(ll); riderMarker.setIcon(riderIcon(num(c.brg))); }
-    }
+    if (hasPos) setRider(c.lat, c.lng, num(c.brg));
+    if (!mapReady) return;
+    map.getSource("track").setData(lineOf(pts));
+    map.getSource("route").setData(lineOf(routePts));
+
     if (!fitted) {
-      const all = [...pts, ...(model.route ? model.route.points : [])];
-      if (all.length > 1) { map.fitBounds(L.latLngBounds(all), { padding: [30, 30], maxZoom: 15 }); fitted = true; }
-      else if (hasPos) { map.setView([c.lat, c.lng], 15); fitted = true; }
+      map.resize(); // the page layout may have changed since the map was created
+      const all = [...pts, ...routePts];
+      if (all.length > 1) {
+        const b = new maplibregl.LngLatBounds();
+        all.forEach(([lat, lng]) => b.extend([lng, lat]));
+        map.fitBounds(b, { padding: 48, maxZoom: 15, duration: 0 });
+        fitted = true;
+      } else if (hasPos) { map.jumpTo({ center: [c.lng, c.lat], zoom: 15 }); fitted = true; }
     } else if (follow && hasPos && model.state === "recording") {
-      if (!map.getBounds().pad(-0.15).contains([c.lat, c.lng])) map.panTo([c.lat, c.lng]);
+      // keep the rider comfortably inside the view
+      const p = map.project([c.lng, c.lat]), el = map.getContainer();
+      const mx = 24, my = 24; // only move when the rider is (nearly) off the visible map
+      if (p.x < mx || p.y < my || p.x > el.clientWidth - mx || p.y > el.clientHeight - my) map.easeTo({ center: [c.lng, c.lat], duration: 600 });
     }
   }
 
   $("#recenter").addEventListener("click", () => {
     follow = true; $("#recenter").hidden = true;
     const c = model && model.cur;
-    if (c && num(c.lat) != null) map.setView([c.lat, c.lng], Math.max(map.getZoom(), 14));
+    if (c && num(c.lat) != null) map.easeTo({ center: [c.lng, c.lat], zoom: Math.max(map.getZoom(), 14) });
   });
 
   // ---------------------------------------------------------------- metrics
@@ -467,12 +485,14 @@
     });
     // where on the ride
     const where = $("#chart-where");
-    if (idx == null) { where.textContent = chartState.useDist ? "Drag across to inspect" : ""; hoverMarker && hoverMarker.remove(); hoverMarker = null; return; }
+    if (idx == null) { where.textContent = chartState.useDist ? "Drag across to inspect" : ""; if (hoverMarker) hoverMarker.remove(); hoverMarker = null; return; }
     const p = chartState.rows[idx];
     where.textContent = chartState.useDist ? `at ${fmtDist(p.d - chartState.xs[0]).join(" ")}` : new Date(p.t).toLocaleTimeString();
     if (map && num(p.lat) != null) {
-      if (!hoverMarker) hoverMarker = L.circleMarker([p.lat, p.lng], { radius: 7, color: "#fff", weight: 3, fillColor: css("--series"), fillOpacity: 1 }).addTo(map);
-      else hoverMarker.setLatLng([p.lat, p.lng]);
+      if (!hoverMarker) {
+        const el = document.createElement("div"); el.className = "hover-dot";
+        hoverMarker = new maplibregl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(map);
+      } else hoverMarker.setLngLat([p.lng, p.lat]);
     }
   }
 
@@ -524,6 +544,7 @@
       else { text = "Waiting"; line = model.track.length ? "" : "No ride data yet. It appears when the rider starts recording."; }
       if (model.startedAt && model.state !== "idle") line += (line ? " · " : "") + "Started " + new Date(model.startedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     }
+    if (connected === false && gotFirst && fbData) line += (line ? " · " : "") + "Reconnecting…";
     pill.className = "pill " + cls;
     pill.lastChild.textContent = text;
     sub.textContent = line;
@@ -554,7 +575,7 @@
     lastStructure = ""; render();
   });
   let resizeT;
-  addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { lastStructure = ""; render(); }, 200); });
+  addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (map) map.resize(); lastStructure = ""; render(); }, 200); });
 
   $("#copy").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(location.href); $("#copy").textContent = "Copied"; }
