@@ -357,7 +357,11 @@
     const c = (model && model.cur) || {};
     const stale = !model || model.state !== "recording" || isStale();
     const prim = $("#metrics-primary"); prim.replaceChildren();
-    PRIMARY.forEach((d) => {
+    // Only show sensor tiles this rider actually has: a metric appears once it has had a value
+    // this ride. Speed always shows (GPS provides it). With no ride data yet, show them all.
+    const hasRide = model && (model.track.length || Object.keys(c).length);
+    const seen = (key) => key === "spd" || !hasRide || num(c[key]) != null || model.track.some((p) => num(p[key]) != null);
+    PRIMARY.filter((d) => seen(d.key)).forEach((d) => {
       // Instant values are meaningless once the rider has stopped or the signal is gone.
       const v = stale && model && model.state !== "paused" ? null : num(c[d.key]);
       const t = tile(d, v, "card");
