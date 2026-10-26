@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Broadcast dot with signal arcs -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#FF3B30" android:pathData="M24,24m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+    <path android:strokeColor="#FF3B30" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:pathData="M15.5,15.5a12,12 0,0 0,0 17M32.5,15.5a12,12 0,0 1,0 17" />
+    <path android:strokeColor="#FF3B30" android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:pathData="M9.6,9.6a20.4,20.4 0,0 0,0 28.8M38.4,9.6a20.4,20.4 0,0 1,0 28.8" />
+</vector>

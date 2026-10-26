@@ -1,0 +1,57 @@
+name: Android build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace assembleRelease karooManifest
+
+      - name: Collect outputs
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/release/app-release.apk dist/karoo-live.apk
+          cp android/app/build/outputs/karoo/manifest.json dist/manifest.json
+          cp android/app/karoo-live.png dist/karoo-live.png
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: karoo-live-apk
+          path: dist/
+
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/karoo-live.apk dist/manifest.json dist/karoo-live.png \
+            --title "Karoo Live ${GITHUB_REF_NAME}" \
+            --notes "Install \`karoo-live.apk\` on your Karoo. Setup guide: https://github.com/madooroy/karoo-live#readme"
