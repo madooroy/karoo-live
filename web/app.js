@@ -95,13 +95,16 @@
   }
 
   /** Polls a KarooTracker feed (a copy of Hammerhead's live tracking). */
-  function k2tSource(id, onData) {
+  function k2tSource(id, onData, onProblem) {
     const url = `https://storagekarootrack.blob.core.windows.net/tracking/${encodeURIComponent(id)}`;
     function poll() {
       fetch(`${url}?${Date.now()}`, { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
+        .then((r) => {
+          if (r.status === 404) { onProblem(`No KarooTracker feed found for "${id}". Check the link.`); return null; }
+          return r.ok ? r.json() : null;
+        })
         .then((d) => { if (d) onData(d); })
-        .catch(() => {})
+        .catch(() => onProblem("Can't reach KarooTracker right now."))
         .finally(() => setTimeout(poll, 10000));
     }
     poll();
@@ -207,7 +210,8 @@
       (msg) => { problem = msg; render(); },
       (isUp) => { connected = isUp; renderStatus(); });
   }
-  if (k2tId) k2tSource(k2tId, (d) => { gotFirst = true; k2tData = fromK2t(d); update(); });
+  if (k2tId) k2tSource(k2tId, (d) => { gotFirst = true; k2tData = fromK2t(d); update(); },
+    (msg) => { if (!fbData) { problem = msg; render(); } });
 
   setInterval(renderStatus, 1000);
 
@@ -228,7 +232,8 @@
   }
 
   function initMap() {
-    if (map || !window.maplibregl) return;
+    if (map) return;
+    if (!window.maplibregl) { $("#map-msg").hidden = false; return; }
     map = new maplibregl.Map({
       container: "map",
       style: isDark() ? STYLE_DARK : STYLE_LIGHT,
@@ -258,6 +263,7 @@
       renderMap();
     });
     map.on("dragstart", (e) => { if (e.originalEvent) { follow = false; $("#recenter").hidden = false; } });
+    map.on("error", (e) => console.warn("Map:", e && e.error ? e.error.message : e));
   }
 
   function setRider(lat, lng, brg) {

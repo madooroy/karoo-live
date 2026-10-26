@@ -171,6 +171,8 @@ a { color: var(--track); }
 .map-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .map-legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--track); border-radius: 2px; }
 .map-legend i.route { border-top: 3px dashed var(--route); }
+.map-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--text-3); font-size: 14px; }
+.map-msg[hidden] { display: none; }
 .recenter {
   position: absolute; right: 10px; bottom: 10px; z-index: 500;
 }
