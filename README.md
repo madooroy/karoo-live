@@ -30,7 +30,7 @@ Karoo (Karoo Live extension)  ──every 15 s──▶  your Firebase Realtime 
 - **`web/`** is the viewer: one static page on GitHub Pages. It subscribes to your ride with the Firebase web SDK, so updates appear within a second of arriving, and draws the map with MapLibre (smooth vector maps, no API key).
 - **`firebase/database.rules.json`** holds the database rules. Anyone with the link can read one ride; only your Karoo's login can write.
 
-The viewer can also show [KarooTracker](https://k2tracker.drakey.co.uk) feeds (Hammerhead's own live tracking) with `?k2t=<id>`, either alone or as a fallback alongside Karoo Live.
+The viewer can optionally also read a [KarooTracker](https://k2tracker.drakey.co.uk) feed (a third-party copy of Hammerhead's own tracking) with `?k2t=<id>`. It's only a backup and isn't needed; that service has been unreliable.
 
 ## Get started
 

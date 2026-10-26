@@ -1,0 +1,43 @@
+name: Report a problem
+description: Something isn't working on the Karoo or the live page
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please **don't paste your Firebase password, API key or share link** here.
+  - type: dropdown
+    id: karoo
+    attributes:
+      label: Karoo model
+      options: [Karoo 2, Karoo 3 (new Karoo)]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Karoo Live app version
+      description: Shown on the GitHub release you installed, e.g. 0.2.1
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How was the Karoo online during the ride?
+      options: [SIM card, Phone hotspot, Companion App (Karoo 3), Not sure]
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: Status box and Recent activity
+      description: Open Karoo Live on the Karoo after the ride and copy (or screenshot) the grey status box and the "Recent activity" log.
+  - type: textarea
+    id: page
+    attributes:
+      label: What the live page showed
+      description: A screenshot helps. Crop out anything you don't want public, like your home location.

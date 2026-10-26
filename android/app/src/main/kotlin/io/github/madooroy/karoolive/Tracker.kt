@@ -199,6 +199,7 @@ class Tracker(
             try {
                 firebase.put("live/$shareId", node) // replaces the previous ride on this link, clearing its track
                 settings.rideNodeCreated = true
+                settings.linkUsed = true
                 routeDirty = false
                 Timber.i("Ride page created")
             } catch (e: Exception) {

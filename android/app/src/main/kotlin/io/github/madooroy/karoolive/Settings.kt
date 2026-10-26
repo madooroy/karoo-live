@@ -86,6 +86,12 @@ class Settings(context: Context) {
         get() = prefs.getString("activeRideShareId", "") ?: ""
         set(v) = prefs.edit().putString("activeRideShareId", v).apply()
 
+    /** True once this share link has been tested or ridden with; imports then won't silently replace it. */
+    var linkUsed: Boolean
+        // Existing installs from before this flag: treat the link as used if the app ever did anything.
+        get() = prefs.getBoolean("linkUsed", prefs.contains("shareId") && prefs.getLong("lastStatusAt", 0L) > 0L && !(prefs.getString("lastStatus", "") ?: "").startsWith("Not set up"))
+        set(v) = prefs.edit().putBoolean("linkUsed", v).apply()
+
     /** Whether the Firebase node for the active ride has been created yet (PUT succeeded). */
     var rideNodeCreated: Boolean
         get() = prefs.getBoolean("rideNodeCreated", false)

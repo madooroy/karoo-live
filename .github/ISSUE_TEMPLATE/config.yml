@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup guide
+    url: https://github.com/madooroy/karoo-live/blob/main/docs/SETUP.md
+    about: Step-by-step setup and troubleshooting

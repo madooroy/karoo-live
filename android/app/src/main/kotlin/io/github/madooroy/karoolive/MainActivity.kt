@@ -123,6 +123,7 @@ class MainActivity : Activity() {
             extras.getString(k)?.let { values[k] = it }
         }
         var changed = false
+        var keptLink = false
         values["db"]?.let { settings.databaseUrl = it; changed = true }
         values["key"]?.let { settings.apiKey = it; changed = true }
         values["email"]?.let { settings.email = it; changed = true }
@@ -130,10 +131,18 @@ class MainActivity : Activity() {
         values["name"]?.let { settings.riderName = it; changed = true }
         values["k2t"]?.let { settings.k2tId = it; changed = true }
         values["interval"]?.toIntOrNull()?.let { settings.intervalSeconds = it; changed = true }
-        values["id"]?.let { if (settings.setShareId(it)) { settings.activeRideShareId = ""; changed = true } }
+        values["id"]?.let { id ->
+            // Once a link has been used (tested or ridden), only replace it when the setup page says so.
+            if (id != settings.shareId && settings.linkUsed && values["keepId"] != "1") {
+                keptLink = true
+            } else if (settings.setShareId(id)) {
+                settings.activeRideShareId = ""
+                changed = true
+            }
+        }
         if (changed) {
             settings.refreshToken = ""
-            Toast.makeText(this, "Settings imported", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (keptLink) "Settings imported. Kept your existing share link." else "Settings imported", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -189,6 +198,7 @@ class MainActivity : Activity() {
                     },
                 )
                 settings.setStatus("Connection test OK")
+                settings.linkUsed = true
                 toast("Connected! Open the share link to check.")
             } catch (e: Exception) {
                 settings.setStatus("Test failed: ${e.message}")
@@ -264,7 +274,7 @@ class MainActivity : Activity() {
         email = field(root, "Firebase login email", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
         password = field(root, "Firebase login password", InputType.TYPE_TEXT_VARIATION_PASSWORD)
         interval = field(root, "Update every (seconds, 15 recommended)", 0, numeric = true)
-        k2t = field(root, "KarooTracker id (optional)", InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
+        k2t = field(root, "KarooTracker id (optional backup; leave empty if unsure)", InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
 
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -301,6 +311,7 @@ class MainActivity : Activity() {
                     .setMessage("Create a new share link? The old link stops updating.")
                     .setPositiveButton("New link") { _, _ ->
                         settings.regenerateShareId()
+                        settings.linkUsed = false
                         settings.activeRideShareId = ""
                         if (settings.isConfigured) showLink()
                     }

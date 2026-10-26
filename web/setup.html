@@ -73,9 +73,9 @@
         </div>
       </div>
       <div class="row">
-        <label for="k2t">KarooTracker id (optional)</label>
-        <input id="k2t" placeholder="e.g. 9h2Q3ZPK">
-        <small>Only if you also use k2tracker.drakey.co.uk. The page then falls back to Hammerhead's tracking when your Firebase feed is quiet.</small>
+        <label for="existing">Already set up? Your current share link (optional)</label>
+        <input id="existing" placeholder="https://mybikeride.live/?db=…&id=…">
+        <small>Paste it to keep the same link when you reinstall or change settings. Leave empty for a first-time setup.</small>
       </div>
     </form>
 
@@ -98,12 +98,12 @@
   (() => {
     const $ = (id) => document.getElementById(id);
     const ALPHA = "abcdefghjkmnpqrstuvwxyz23456789";
-    let shareId = "";
-    try { shareId = localStorage.getItem("karoolive.setup.id") || ""; } catch (e) {}
-    if (!/^[a-z0-9]{6,}$/.test(shareId)) {
+    let newId = "";
+    try { newId = localStorage.getItem("karoolive.setup.id") || ""; } catch (e) {}
+    if (!/^[a-z0-9]{6,}$/.test(newId)) {
       const r = crypto.getRandomValues(new Uint32Array(10));
-      shareId = Array.from(r, (n) => ALPHA[n % ALPHA.length]).join("");
-      try { localStorage.setItem("karoolive.setup.id", shareId); } catch (e) {}
+      newId = Array.from(r, (n) => ALPHA[n % ALPHA.length]).join("");
+      try { localStorage.setItem("karoolive.setup.id", newId); } catch (e) {}
     }
 
     function host(input) {
@@ -119,12 +119,19 @@
     }
 
     function update() {
+      // Reuse the id from an existing link if one was pasted, so the link never changes by accident.
+      let shareId = newId, keep = false;
+      try {
+        const u = new URL($("existing").value.trim());
+        const id = u.searchParams.get("id");
+        if (id && /^[A-Za-z0-9_-]{6,64}$/.test(id)) { shareId = id; keep = true; }
+        if (!$("db").value.trim() && u.searchParams.get("db")) $("db").value = u.searchParams.get("db");
+      } catch (e) { /* not a link (yet) */ }
       const h = host($("db").value);
-      const k2t = $("k2t").value.trim().split("/").pop();
       if (h) {
         const db = h.endsWith("-default-rtdb.firebaseio.com") ? h.replace("-default-rtdb.firebaseio.com", "") : h;
         const base = new URL("./", location.href).href;
-        $("link").textContent = `${base}?db=${encodeURIComponent(db)}&id=${shareId}` + (k2t ? `&k2t=${encodeURIComponent(k2t)}` : "");
+        $("link").textContent = `${base}?db=${encodeURIComponent(db)}&id=${shareId}`;
       } else {
         $("link").textContent = "Fill in the database URL first.";
       }
@@ -132,7 +139,7 @@
         db: h, key: $("key").value.trim(), email: $("email").value.trim(), password: $("password").value,
         name: $("name").value.trim(), interval: String($("interval").value || 15), id: shareId,
       };
-      if (k2t) cfg.k2t = k2t;
+      if (keep) cfg.keepId = "1";
       if (cfg.db && cfg.key && cfg.email && cfg.password) {
         $("cmd").textContent =
           "adb install -r karoo-live.apk\n" +
