@@ -17,11 +17,11 @@ Firebase is Google's app backend. The free "Spark" plan is far more than one rid
 
 1. **Create a project.** Go to [console.firebase.google.com](https://console.firebase.google.com), click **Create a project**, and name it something like `karoo-live-yourname`. You can turn Google Analytics off.
 
-2. **Create the database.** In the left menu open **Build → Realtime Database** and click **Create database**.
+2. **Create the database.** In the left menu open **Databases & Storage → Realtime Database** (older consoles: **Build → Realtime Database**) and click **Create database**.
    - Location: pick the one nearest you (United States is fine for North America).
    - Security rules: choose **Start in locked mode**.
 
-3. **Paste the rules.** On the database page open the **Rules** tab, replace everything with the contents of [`firebase/database.rules.json`](../firebase/database.rules.json), and click **Publish**.
+3. **Paste the rules.** The database page has tabs across the top: **Data, Rules, Backups, Usage**. Open **Rules**: it's a text editor showing a few lines of JSON. Click inside it, select everything (Ctrl+A / Cmd+A), delete it, paste the the contents of [`firebase/database.rules.json`](../firebase/database.rules.json) (also shown below), and click **Publish**.
 
    ```json
    {
@@ -44,7 +44,7 @@ Firebase is Google's app backend. The free "Spark" plan is far more than one rid
 
 4. **Copy the database URL.** Back on the **Data** tab, copy the URL at the top. It looks like `https://karoo-live-yourname-default-rtdb.firebaseio.com`.
 
-5. **Turn on email login.** Open **Build → Authentication**, click **Get started**, choose **Email/Password**, switch on the first toggle, and click **Save**.
+5. **Turn on email login.** Open **Security → Authentication** (older consoles: **Build → Authentication**), click **Get started**, choose **Email/Password**, switch on the first toggle, and click **Save**.
 
 6. **Add a login for your Karoo.** Still in Authentication, open the **Users** tab, click **Add user**, and enter an email and a **new password used only for this**. The email doesn't need to be real, for example `karoo@yourname.example`.
 
