@@ -1,0 +1,168 @@
+/* Group view. Builds on style.css (colors, type, cards, pills, buttons). */
+
+:root { --route-band: #9d9b93; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --route-band: #8a8880; } }
+:root[data-theme="dark"] { --route-band: #8a8880; }
+:root[data-theme="light"] { color-scheme: light; }
+
+.gwrap { max-width: 1280px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+.gwrap .top { flex-wrap: wrap; row-gap: 8px; }
+.gwrap .top h1 { flex: 1 1 auto; max-width: 100%; }
+.gwrap .top .spacer { display: none; }
+@media (min-width: 640px) { .gwrap .top h1 { flex: 0 1 auto; } .gwrap .top .spacer { display: block; } }
+#theme { display: inline-flex; align-items: center; gap: 5px; }
+#theme svg { width: 15px; height: 15px; }
+
+/* ---------- layout: map on top on phones, side by side on wide screens ---------- */
+.ggrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.ggrid > * { min-width: 0; }
+.seg[hidden], .iconbtn[hidden] { display: none; }
+.gmapcard #map { height: 52vh; min-height: 300px; max-height: 620px; }
+@media (min-width: 900px) {
+  .ggrid { grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr); align-items: start; }
+  .gmapcard { position: sticky; top: 12px; }
+  .gmapcard #map { height: calc(100vh - 120px); max-height: none; min-height: 480px; }
+}
+
+/* ---------- map overlay controls ---------- */
+.map-tools {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 600;
+  display: flex; gap: 0; padding: 3px; border-radius: 12px; max-width: calc(100% - 24px);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .12);
+}
+.seg {
+  border: 0; background: transparent; color: var(--text-2); cursor: pointer;
+  height: 32px; padding: 0 12px; border-radius: 9px; font: 600 13px var(--ui); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+}
+.seg[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+.seg:focus-visible, .rhead:focus-visible, .gm:focus-visible, .iconbtn:focus-visible { outline: 3px solid var(--track); outline-offset: 2px; }
+.seg.following { overflow: hidden; text-overflow: ellipsis; }
+.seg .x { font-size: 16px; line-height: 1; margin-left: 2px; opacity: .8; }
+.chipdot { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font: 700 11px var(--num); flex: none; }
+.map-legend i.route-band { border-top: 0; height: 7px; border-radius: 4px; background: var(--route-band); opacity: .6; }
+.gmapcard .map-legend { top: 10px; right: 10px; }
+
+/* ---------- rider markers ---------- */
+/* No `position` here: MapLibre's .maplibregl-marker class positions the marker absolutely. */
+.gm {
+  width: 30px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; color: inherit;
+}
+.gm-dot {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: var(--c); color: var(--ink); border: 2.5px solid var(--ink);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .35);
+  display: grid; place-items: center; font: 700 15px/1 var(--num);
+}
+.gm-arrow { position: absolute; inset: -9px; transform: rotate(var(--brg, 0deg)); display: none; pointer-events: none; }
+.gm-arrow::before {
+  content: ""; position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 9px solid var(--c);
+  filter: drop-shadow(0 0 1px var(--ink)) drop-shadow(0 0 1px var(--ink));
+}
+.gm.heading .gm-arrow { display: block; }
+.gm-label {
+  position: absolute; top: 33px; left: 50%; transform: translateX(-50%);
+  padding: 1px 7px; border-radius: 7px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+  font: 600 12px/18px var(--ui); color: var(--text); pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--line);
+}
+.gm-label.hidden { display: none; }
+.gm.sel .gm-dot { transform: scale(1.22); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 40%, transparent), 0 1px 6px rgba(0, 0, 0, .4); }
+.gm.sel .gm-label { font-weight: 700; border-color: var(--c); }
+/* Signal lost: last known position, faded with a dashed ring (like "last seen" in Find My) */
+.gm.stale .gm-dot { opacity: .55; border-style: dashed; box-shadow: none; }
+.gm.stale .gm-label { color: var(--warn); }
+.gm.done .gm-dot { border-radius: 8px; }
+
+/* ---------- rider list ---------- */
+.glist { padding: 6px 0 8px; }
+.glist-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 14px 8px; }
+.glist-head h2 { font-size: 15px; margin: 0; }
+.sortby { display: flex; padding: 3px; border-radius: 11px; background: var(--surface-2); }
+.sortby .seg { height: 28px; padding: 0 10px; font-size: 12px; }
+.riders, .others ul { list-style: none; margin: 0; padding: 0; }
+.rider-row { border-top: 1px solid var(--grid); }
+.rhead {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+  padding: 10px 14px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
+  min-height: 56px;
+}
+.rhead:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.rider-row.open .rhead { background: var(--surface-2); }
+.rbadge {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font: 700 15px/1 var(--num);
+}
+.rbadge.dashed { outline: 2px dashed currentColor; outline-offset: -5px; }
+.rider-row.lost .rbadge, .rider-row.none .rbadge, .rider-row.waiting .rbadge, .rider-row.error .rbadge { opacity: .6; }
+.rider-row.finished .rbadge, .rider-row.paused .rbadge { border-radius: 8px; }
+.rmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rtop { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rname { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rline.wrap { white-space: normal; }
+.rline { font-size: 13px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rline.r2 { color: var(--text-3); }
+.rline .lead { color: var(--ok); }
+.rline .gap { color: var(--text-2); }
+.rline .warn, .rline .age.warn { color: var(--warn); font-weight: 600; }
+.rpos { flex: none; font: 600 22px/1 var(--num); color: var(--text-3); min-width: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+.pill.sm { padding: 2px 8px 2px 7px; font-size: 11px; gap: 5px; flex: none; }
+.pill.sm .dot { width: 7px; height: 7px; }
+.pill.none { color: var(--text-3); }
+.flag { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--warn); }
+.gaprow {
+  padding: 4px 14px 4px 56px; font-size: 12px; font-weight: 600; color: var(--text-3);
+  border-top: 1px dashed var(--line); background: var(--bg); font-variant-numeric: tabular-nums;
+}
+.gaprow.quiet { font-weight: 500; }
+
+/* rider details */
+.rdetail { padding: 4px 14px 14px 56px; background: var(--surface-2); }
+.rgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; }
+@media (min-width: 900px) and (max-width: 1100px) { .rgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rm { min-width: 0; }
+.rl { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv { font: 600 26px/1.05 var(--num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 480px) { .rv { font-size: 22px; } }
+.rv .u { font: 600 12px var(--ui); color: var(--text-3); margin-left: 3px; }
+.rv.na { color: var(--text-3); }
+.rnote { font-size: 12px; color: var(--text-3); margin: 10px 0 0; line-height: 1.5; }
+.racts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.racts .iconbtn { display: inline-flex; align-items: center; text-decoration: none; height: 36px; }
+@media (max-width: 380px) { .rdetail, .gaprow { padding-left: 14px; } }
+
+/* other trackers */
+.others { border-top: 1px solid var(--line); margin-top: 6px; padding: 10px 14px 4px; }
+.others h3 { font-size: 13px; margin: 0 0 2px; color: var(--text-2); }
+.others .hint { font-size: 12px; color: var(--text-3); margin: 0 0 6px; line-height: 1.4; }
+.other-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--grid); }
+.other-row .iconbtn { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* ---------- builder ---------- */
+.gbuild { max-width: 680px; margin-top: 5vh; }
+.gbuild form { display: block; }
+.gbuild label { display: block; font-size: 13px; font-weight: 600; color: var(--text-2); margin: 14px 0 6px; }
+.gbuild textarea {
+  width: 100%; padding: 10px 12px; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+}
+.gbuild input { width: 100%; }
+.gbuild .hint { font-size: 13px; color: var(--text-3); margin: 6px 0; }
+.build-actions { display: flex; gap: 8px; margin: 10px 0; }
+.gbuild button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+.build-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.build-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--grid); }
+.build-list li:last-child { border-bottom: 1px solid var(--grid); }
+.swatch { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 13px var(--num); }
+.build-item { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.build-item small { color: var(--text-3); }
+.gbuild button.linkbtn {
+  height: 32px; padding: 0 8px; background: transparent; color: var(--track); border: 0; font: 600 13px var(--ui); flex: none;
+}
+.gbuild button.linkbtn:disabled { color: var(--text-3); opacity: .5; cursor: default; }
+.build-msg { font-size: 13px; color: var(--text-2); min-height: 18px; }
+.build-urlrow { display: flex; gap: 8px; }
+.build-urlrow input { font-size: 13px; }

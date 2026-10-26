@@ -1,0 +1,33 @@
+name: Viewer tests
+
+on:
+  push:
+    paths: ['web/**', 'tests/**', '.github/workflows/viewer-tests.yml']
+  pull_request:
+    paths: ['web/**', 'tests/**', '.github/workflows/viewer-tests.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm install --no-audit --no-fund
+        working-directory: tests
+      - run: pip install playwright && python -m playwright install --with-deps chromium
+      - run: python viewer_test.py
+        working-directory: tests
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: viewer-screenshots
+          path: tests/out/

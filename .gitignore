@@ -6,3 +6,6 @@ local.properties
 .DS_Store
 captures/
 .kotlin/
+tests/node_modules/
+tests/out/
+__pycache__/

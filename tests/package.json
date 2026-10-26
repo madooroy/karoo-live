@@ -1,0 +1,6 @@
+{
+  "name": "karoo-live-tests",
+  "private": true,
+  "description": "Headless browser tests for the viewer pages. MapLibre is installed locally so tests don't need a CDN.",
+  "devDependencies": { "maplibre-gl": "5.24.0" }
+}

@@ -18,6 +18,10 @@ Your data goes to **your own free Firebase database**. There's no shared server,
 | Karoo battery, grade, distance to go | ✗ | ✓ |
 | Fills in gaps after a dead zone | ✗ | ✓ |
 
+## Group rides
+
+Following a group? **[mybikeride.live/group.html](https://mybikeride.live/group.html)** puts several riders on one map: everyone's track and heading, the planned route, who's leading, the gaps between bunches, and who has lost signal or finished. The organizer pastes the riders' share links, and the group lives entirely in the link, with no account or server. Each rider's data stays in their own Firebase. Riders on Garmin, Wahoo and other trackers can be listed with a link to their own tracking page. See **[docs/GROUP.md](docs/GROUP.md)**.
+
 ## How it works
 
 ```
@@ -27,7 +31,7 @@ Karoo (Karoo Live extension)  ──every 15 s──▶  your Firebase Realtime 
 ```
 
 - **`android/`** is a small Karoo extension built on Hammerhead's official [karoo-ext](https://github.com/hammerheadnav/karoo-ext) SDK. While a ride is recording, it sends a snapshot every 15 seconds (adjustable): position, heading, 3s speed, 3s power, 3s cadence, heart rate, distance, times, climbing, grade, temperature, battery, and route progress. If the signal drops, points are queued and sent when it comes back.
-- **`web/`** is the viewer: one static page on GitHub Pages. It subscribes to your ride with the Firebase web SDK, so updates appear within a second of arriving, and draws the map with MapLibre (smooth vector maps, no API key).
+- **`web/`** is the viewer: static pages on GitHub Pages (`index.html` for one rider, `group.html` for a group, sharing `common.js`). It subscribes to your ride with the Firebase web SDK, so updates appear within a second of arriving, and draws the map with MapLibre (smooth vector maps, no API key).
 - **`firebase/database.rules.json`** holds the database rules. Anyone with the link can read one ride; only your Karoo's login can write.
 
 The viewer can optionally also read a [KarooTracker](https://k2tracker.drakey.co.uk) feed (a third-party copy of Hammerhead's own tracking) with `?k2t=<id>`. It's only a backup and isn't needed; that service has been unreliable.
@@ -58,7 +62,7 @@ cd android
 ./gradlew assembleRelease        # APK: app/build/outputs/apk/release/app-release.apk
 ```
 
-GitHub Actions builds every push. Pushing a `v*` tag publishes a release with `karoo-live.apk` and the Karoo `manifest.json`. The `web/` folder deploys to GitHub Pages automatically.
+Viewer tests (headless Chromium, mocked Firebase) live in `tests/`; see [docs/GROUP.md](docs/GROUP.md#testing). GitHub Actions builds every push. Pushing a `v*` tag publishes a release with `karoo-live.apk` and the Karoo `manifest.json`. The `web/` folder deploys to GitHub Pages automatically.
 
 APKs are signed with a key committed in `android/app/` so every build installs over the previous one. It isn't a secret. To sign with your own key, set the `KAROO_LIVE_KEYSTORE*` environment variables (see `android/app/build.gradle.kts`).
 
