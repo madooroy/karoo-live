@@ -296,6 +296,21 @@ a { color: var(--track); }
 .quick .chart svg { height: 100px; }
 .quick .chart-title { padding-top: 2px; }
 
+/* splits */
+.splits { padding: 10px 0 8px; }
+.split-pick { display: flex; gap: 5px; }
+.split-pick .chip::before { display: none; }
+.split-scroll { overflow-x: auto; padding: 0 14px; }
+.splits table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.splits th, .splits td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+.splits th:first-child, .splits td:first-child { text-align: left; padding-left: 0; }
+.splits th:last-child, .splits td:last-child { padding-right: 0; }
+.splits th { color: var(--text-2); font-weight: 600; font-size: 12px; vertical-align: bottom; line-height: 1.25; }
+.splits th small { display: block; font-weight: 500; font-size: 11px; color: var(--text-3); }
+.splits td.part { color: var(--text-3); }
+.splits tfoot td { font-weight: 700; border-bottom: none; border-top: 2px solid var(--line); }
+.splits th i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; position: relative; top: -1px; }
+
 details.table { padding: 4px 14px 12px; }
 details.table summary { cursor: pointer; font-size: 13px; color: var(--text-2); padding: 6px 0; }
 details.table table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -351,3 +366,4 @@ footer { margin-top: 22px; font-size: 12px; color: var(--text-3); text-align: ce
 }
 .maplibregl-map { font-family: var(--ui); }
 .maplibregl-ctrl-attrib { font-size: 11px; }
+@media (max-width: 420px) { .splits th i { display: none; } }

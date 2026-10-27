@@ -459,6 +459,128 @@
     }
   }
 
+  // ---------------------------------------------------------------- splits
+  // Per mile or km (following the rider's units), like Garmin LiveTrack. Time is moving time:
+  // stretches where the rider covered no ground (stops, pauses) are left out.
+  const SPLIT_LENGTHS = [1, 5, 10];
+  let splitLen = null; // null = choose automatically
+  try { splitLen = Number(localStorage.getItem("karoolive.split")) || null; } catch (e) { /* storage blocked */ }
+
+  function computeSplits(rows, L) {
+    const out = [];
+    const get = (i) => out[i] || (out[i] = { i, dist: 0, time: 0, gain: 0, w: {}, sum: {} });
+    const add = (s, k, v, wt) => { if (v == null || wt <= 0) return; s.w[k] = (s.w[k] || 0) + wt; s.sum[k] = (s.sum[k] || 0) + v * wt; };
+    const mid = (a, b, k, skipZero) => {
+      let x = num(a[k]), y = num(b[k]);
+      if (skipZero) { if (x === 0) x = null; if (y === 0) y = null; }
+      return x != null && y != null ? (x + y) / 2 : (x ?? y);
+    };
+    let ref = null;
+    for (let j = 1; j < rows.length; j++) {
+      const a = rows[j - 1], b = rows[j];
+      const dd = b.d - a.d, dt = b.t - a.t;
+      // climbing, with 1 m hysteresis so sensor noise doesn't add up
+      const alt = num(b.alt);
+      if (alt != null) {
+        if (ref == null) ref = num(a.alt) ?? alt;
+        if (alt > ref + 1) { get(Math.floor(Math.max(0, b.d) / L)).gain += alt - ref; ref = alt; }
+        else if (alt < ref - 1) ref = alt;
+      }
+      if (!(dt > 0) || !(dd > 0) || dd / (dt / 1000) < 0.5) continue; // stopped
+      const v = { pwr: mid(a, b, "pwr"), hr: mid(a, b, "hr"), cad: mid(a, b, "cad", true) };
+      let start = Math.max(0, a.d);
+      const end = b.d;
+      while (start < end - 1e-6) {
+        const idx = Math.floor(start / L + 1e-9);
+        const segEnd = Math.min(end, (idx + 1) * L);
+        const wt = dt * ((segEnd - start) / dd);
+        const s = get(idx);
+        s.dist += segEnd - start; s.time += wt;
+        Object.keys(v).forEach((k) => add(s, k, v[k], wt));
+        start = segEnd;
+      }
+    }
+    return out.filter(Boolean);
+  }
+
+  function renderSplits() {
+    const box = $("#splits");
+    const rows = ((model && model.track) || []).filter((p) => num(p.t) != null && num(p.d) != null);
+    const unitM = units === "imperial" ? 1609.344 : 1000;
+    const total = rows.length > 1 ? rows[rows.length - 1].d : 0;
+    if (rows.length < 2 || total < unitM * 0.5) { box.hidden = true; return; }
+    box.hidden = false;
+    const auto = SPLIT_LENGTHS.find((n) => total / (n * unitM) <= 20) || SPLIT_LENGTHS[SPLIT_LENGTHS.length - 1];
+    const len = SPLIT_LENGTHS.includes(splitLen) && total >= splitLen * unitM ? splitLen : auto;
+    const uName = units === "imperial" ? "mi" : "km";
+
+    const pick = $("#split-pick"); pick.replaceChildren();
+    SPLIT_LENGTHS.filter((n) => n === 1 || total >= n * unitM).forEach((n) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip" + (n === len ? " on" : "");
+      b.setAttribute("aria-pressed", String(n === len));
+      b.textContent = `${n} ${uName}`;
+      b.addEventListener("click", () => {
+        splitLen = n;
+        try { localStorage.setItem("karoolive.split", String(n)); } catch (e) { /* ignore */ }
+        renderSplits();
+      });
+      pick.append(b);
+    });
+    if (pick.children.length < 2) pick.replaceChildren();
+
+    const L = len * unitM;
+    const splits = computeSplits(rows, L).filter((s) => s.dist >= L * 0.05);
+    const tot = { dist: 0, time: 0, gain: 0, w: {}, sum: {} };
+    splits.forEach((s) => {
+      tot.dist += s.dist; tot.time += s.time; tot.gain += s.gain;
+      Object.keys(s.w).forEach((k) => { tot.w[k] = (tot.w[k] || 0) + s.w[k]; tot.sum[k] = (tot.sum[k] || 0) + s.sum[k]; });
+    });
+    const avg = (s, k) => (s.w[k] ? s.sum[k] / s.w[k] : null);
+    const COLS = [
+      { label: "Time", cell: (s) => (s.time ? fmtDuration(s.time) : "—") },
+      { label: "Speed", color: "spd", cell: (s) => (s.time ? fmtNum(U.speed(s.dist / (s.time / 1000))[0], 1) : "—"), unit: () => U.speed(1)[1] },
+      { label: "Climb", color: "alt", key: "alt", cell: (s) => fmtNum(U.elev(s.gain)[0], 0), unit: () => U.elev(1)[1] },
+      { label: "Power", color: "pwr", key: "pwr", cell: (s) => (avg(s, "pwr") != null ? fmtNum(avg(s, "pwr"), 0) : "—"), unit: () => "W" },
+      { label: "HR", color: "hr", key: "hr", cell: (s) => (avg(s, "hr") != null ? fmtNum(avg(s, "hr"), 0) : "—") },
+      { label: "Cad", color: "cad", key: "cad", cell: (s) => (avg(s, "cad") != null ? fmtNum(avg(s, "cad"), 0) : "—") },
+    ].filter((c) => !c.key || rows.some((p) => num(p[c.key]) != null));
+
+    const head = $("#split-head"); head.replaceChildren();
+    const htr = document.createElement("tr");
+    [{ label: uName }, ...COLS].forEach((c) => {
+      const th = document.createElement("th");
+      if (c.color) { const i = document.createElement("i"); i.style.background = `var(--c-${c.color})`; i.setAttribute("aria-hidden", "true"); th.append(i); }
+      th.append(c.label);
+      const u = document.createElement("small"); u.textContent = c.unit ? c.unit() : c.label === "HR" ? "bpm" : c.label === "Cad" ? "rpm" : "\u00a0"; th.append(u);
+      htr.append(th);
+    });
+    head.append(htr);
+
+    const body = $("#split-body"); body.replaceChildren();
+    const live = model.state !== "idle";
+    splits.forEach((s, n) => {
+      const tr = document.createElement("tr");
+      const full = s.dist >= L * 0.995;
+      const first = document.createElement("td");
+      // full splits are labelled by where they end (1, 2, 3… or 5, 10, 15…); a partial one by its length
+      first.textContent = full ? String((s.i + 1) * len) : `+${fmtNum(s.dist / unitM, 2)}`;
+      if (!full) { first.className = "part"; first.title = live && n === splits.length - 1 ? "In progress" : "Partial split"; }
+      tr.append(first);
+      COLS.forEach((c) => { const td = document.createElement("td"); td.textContent = c.cell(s); tr.append(td); });
+      body.append(tr);
+    });
+
+    const foot = $("#split-foot"); foot.replaceChildren();
+    if (splits.length > 1) {
+      const tr = document.createElement("tr");
+      const first = document.createElement("td"); first.textContent = fmtNum(tot.dist / unitM, 1); first.title = "Total";
+      tr.append(first);
+      COLS.forEach((c) => { const td = document.createElement("td"); td.textContent = c.cell(tot); tr.append(td); });
+      foot.append(tr);
+    }
+  }
+
   // ---------------------------------------------------------------- status
   function isStale() { return model && model.updatedAt && Date.now() - model.updatedAt > STALE_MS; }
 
@@ -472,7 +594,13 @@
       if (model.state === "recording" && !isStale()) { cls = "live"; text = "Live"; line = age != null ? `Updated ${ago(age)}` : ""; }
       else if (model.state === "recording") { cls = "lost"; text = "Signal lost"; line = `Last update ${ago(age)}. The rider may be out of coverage.`; }
       else if (model.state === "paused") { cls = "paused"; text = "Paused"; line = age != null ? `Updated ${ago(age)}` : ""; }
-      else if (model.state === "idle") { cls = "done"; text = "Not riding"; line = (model.endedAt || model.updatedAt) ? `Last ride ended ${ago(Date.now() - (model.endedAt || model.updatedAt))}` : ""; }
+      else if (model.state === "idle") {
+        cls = "done"; text = "Not riding";
+        const end = model.endedAt || model.updatedAt;
+        const clock = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        line = end ? `Last ride ended ${ago(Date.now() - end)}` : "";
+        if (end && model.startedAt && model.track.length) line += ` · ${clock(model.startedAt)}–${clock(end)}`;
+      }
       else { text = "Waiting"; line = model.track.length ? "" : "No ride data yet. It appears when the rider starts recording."; }
       if (model.startedAt && model.state !== "idle") line += (line ? " · " : "") + "Started " + new Date(model.startedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     }
@@ -497,7 +625,7 @@
     renderMap();
     // charts only need rebuilding when the track grows
     const sig = model ? `${model.track.length}|${model.track.length && model.track[model.track.length - 1].t}|${units}|${$("#charts-body").clientWidth}` : "";
-    if (sig !== lastStructure) { lastStructure = sig; renderCharts(); }
+    if (sig !== lastStructure) { lastStructure = sig; renderCharts(); renderSplits(); }
   }
 
   $("#units").addEventListener("click", () => {
