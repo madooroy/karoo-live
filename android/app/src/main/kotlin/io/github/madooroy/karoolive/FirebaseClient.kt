@@ -85,17 +85,17 @@ class FirebaseClient(private val settings: Settings, private val http: Http) {
         return true
     }
 
-    private fun url(path: String, token: String): String {
+    private fun url(path: String, token: String, query: String = ""): String {
         val host = settings.databaseHost
         if (host.isBlank()) throw FirebaseException("Database URL is not set")
-        return "https://$host/${path.trim('/')}.json?auth=${enc(token)}"
+        return "https://$host/${path.trim('/')}.json?auth=${enc(token)}" + if (query.isNotEmpty()) "&$query" else ""
     }
 
     /** Runs a database request, re-authenticating once if the token was rejected. */
-    private suspend fun db(method: String, path: String, body: JsonElement? = null): JsonElement {
+    private suspend fun db(method: String, path: String, body: JsonElement? = null, query: String = ""): JsonElement {
         var attempt = 0
         while (true) {
-            val res = http.request(method, url(path, token()), body?.toString())
+            val res = http.request(method, url(path, token(), query), body?.toString())
             if (res.ok) {
                 return if (res.body.isBlank()) JsonNull else json.parseToJsonElement(res.body)
             }
@@ -109,7 +109,7 @@ class FirebaseClient(private val settings: Settings, private val http: Http) {
         }
     }
 
-    suspend fun get(path: String): JsonElement = db("GET", path)
+    suspend fun get(path: String, query: String = ""): JsonElement = db("GET", path, null, query)
     suspend fun put(path: String, value: JsonElement) { db("PUT", path, value) }
     suspend fun patch(path: String, value: JsonObject) { db("PATCH", path, value) }
 

@@ -92,6 +92,26 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("linkUsed", prefs.contains("shareId") && prefs.getLong("lastStatusAt", 0L) > 0L && !(prefs.getString("lastStatus", "") ?: "").startsWith("Not set up"))
         set(v) = prefs.edit().putBoolean("linkUsed", v).apply()
 
+    /** Viewers can send short messages that pop up during a ride. */
+    var messagesEnabled: Boolean
+        get() = prefs.getBoolean("messagesEnabled", true)
+        set(v) = prefs.edit().putBoolean("messagesEnabled", v).apply()
+
+    /** Like Garmin: a message stays on screen until tapped. Off = clears itself after 15 s. */
+    var messagesStay: Boolean
+        get() = prefs.getBoolean("messagesStay", true)
+        set(v) = prefs.edit().putBoolean("messagesStay", v).apply()
+
+    /** Server time of the newest message already picked up this ride. */
+    var lastMessageTs: Long
+        get() = prefs.getLong("lastMessageTs", 0L)
+        set(v) = prefs.edit().putLong("lastMessageTs", v).apply()
+
+    /** Messages shown this ride (capped). */
+    var rideMessages: Int
+        get() = prefs.getInt("rideMessages", 0)
+        set(v) = prefs.edit().putInt("rideMessages", v).apply()
+
     /** Gear changes counted during the current ride. */
     var rideShifts: Int
         get() = prefs.getInt("rideShifts", 0)

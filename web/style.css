@@ -367,3 +367,27 @@ footer { margin-top: 22px; font-size: 12px; color: var(--text-3); text-align: ce
 .maplibregl-map { font-family: var(--ui); }
 .maplibregl-ctrl-attrib { font-size: 11px; }
 @media (max-width: 420px) { .splits th i { display: none; } }
+
+/* ---------- send a message ---------- */
+.msg-open {
+  display: block; width: 100%; margin: 0 0 14px; height: 44px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--c-spd); color: #fff; font: 600 15px var(--ui);
+}
+.msg-open[hidden] { display: none; }
+.msgcard { padding: 12px 14px; margin: 0 0 14px; }
+.msgcard form { display: grid; gap: 4px; }
+.msgcard label { font-size: 12px; font-weight: 600; color: var(--text-2); margin-top: 4px; }
+.msgcard input, .msgcard textarea {
+  width: 100%; box-sizing: border-box; padding: 9px 11px; font: 15px var(--ui); resize: none;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2, var(--surface)); color: var(--text);
+}
+.msg-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.msg-count { flex: 1; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.msg-row button { height: 40px; padding: 0 16px; border-radius: 10px; cursor: pointer; font: 600 14px var(--ui); }
+.msg-row #msg-send { border: 0; background: var(--text); color: var(--surface); }
+.msg-row #msg-send:disabled { opacity: .5; cursor: default; }
+.msg-cancel { border: 1px solid var(--line); background: var(--surface); color: var(--text-2); }
+.msg-note { margin: 8px 0 0; font-size: 13px; color: var(--text-2); }
+.msg-note:empty { display: none; }
+.msg-note.ok { color: var(--ok, #2f8f4e); }
+.msg-note.bad { color: var(--c-hr); }

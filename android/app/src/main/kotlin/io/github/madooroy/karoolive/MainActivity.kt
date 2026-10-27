@@ -56,6 +56,8 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var enabledSwitch: Switch
+    private lateinit var messagesSwitch: Switch
+    private lateinit var stayCheck: Switch
     private lateinit var name: EditText
     private lateinit var db: EditText
     private lateinit var key: EditText
@@ -148,6 +150,9 @@ class MainActivity : Activity() {
 
     private fun loadFields() {
         enabledSwitch.isChecked = settings.enabled
+        messagesSwitch.isChecked = settings.messagesEnabled
+        stayCheck.isChecked = settings.messagesStay
+        stayCheck.isEnabled = settings.messagesEnabled
         name.setText(settings.riderName)
         db.setText(settings.databaseUrl)
         key.setText(settings.apiKey)
@@ -267,6 +272,30 @@ class MainActivity : Activity() {
             setOnCheckedChangeListener { _, checked -> settings.enabled = checked }
         }
         root.addView(enabledSwitch, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
+        messagesSwitch = Switch(this).apply {
+            text = "Messages from viewers"
+            textSize = 16f
+            setPadding(0, dp(8), 0, dp(2))
+            setOnCheckedChangeListener { _, checked ->
+                settings.messagesEnabled = checked
+                stayCheck.isEnabled = checked
+            }
+        }
+        root.addView(messagesSwitch, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        stayCheck = Switch(this).apply {
+            text = "Keep each message on screen until tapped"
+            textSize = 14f
+            setPadding(dp(12), dp(2), 0, dp(2))
+            setOnCheckedChangeListener { _, checked -> settings.messagesStay = checked }
+        }
+        root.addView(stayCheck, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        root.addView(TextView(this).apply {
+            text = "People watching your link can send a short note. It beeps and pops up during the ride (at most one every 20 s, 30 per ride)."
+            textSize = 12f
+            alpha = 0.7f
+            setPadding(dp(12), 0, 0, dp(4))
+        })
 
         name = field(root, "Your name (shown to viewers)", InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         db = field(root, "Firebase database URL or project id", InputType.TYPE_TEXT_VARIATION_URI)

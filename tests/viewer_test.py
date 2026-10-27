@@ -129,6 +129,10 @@ DB = {
     HOST_DENIED: {"live": {"hidden0001": rider("Hidden", 1000)}},
 }
 
+# Ben and Fay have viewer messages switched on (Fay is paused, so she can't receive any right now).
+for _id in ("benShare01", "fayShare01"):
+    DB[HOST_B]["live"][_id]["msg"] = {"on": True, "key": "test-web-key"}
+
 (k2t_lat, k2t_lng), k2t_brg = at(27_800)
 K2T = {
     "riderName": "Kim (KarooTracker)", "state": "RECORDING", "units": "METRIC",
@@ -437,6 +441,71 @@ def test_single_rider_still_works(browser, base):
     ctx.close()
 
 
+def test_messages(browser, base):
+    print("send a message")
+    ctx = browser.new_context(viewport={"width": 375, "height": 812})
+    stub_network(ctx)
+    page = ctx.new_page()
+    errors = []
+    watch_console(page, errors)
+    page.goto(f"{base}/?db=club-rides&id=anaShare01")
+    page.wait_for_function("document.querySelector('#rider').textContent === 'Ana'", timeout=15000)
+    page.wait_for_timeout(600)
+    check(not page.is_visible("#msg-open"), "no message button when the rider hasn't switched messages on")
+    page.goto(f"{base}/?db=ben-karoo&id=fayShare01")
+    page.wait_for_function("document.querySelector('#rider').textContent === 'Fay'", timeout=15000)
+    page.wait_for_timeout(600)
+    check(not page.is_visible("#msg-open"), "no message button while the rider is paused")
+    page.goto(f"{base}/?db=ben-karoo&id=benShare01")
+    page.wait_for_function("document.querySelector('#rider').textContent === 'Ben'", timeout=15000)
+    page.wait_for_selector("#msg-open", state="visible", timeout=5000)
+    check(True, "message button shown while recording")
+    page.click("#msg-open")
+    check(page.is_visible("#msg-from") and not page.is_visible("#msg-open"), "form opens")
+    page.fill("#msg-from", "Mom")
+    page.fill("#msg-text", "Looking strong, see you at the café!")
+    check(page.inner_text("#msg-count") == "36/100", f"character counter ({page.inner_text('#msg-count')})")
+    page.click("#msg-send")
+    page.wait_for_function("document.querySelector('#msg-note').classList.contains('ok')", timeout=5000)
+    sent = page.evaluate("window.__mockFirebase.sent")
+    check(len(sent) == 1 and sent[0]["from"] == "Mom" and sent[0]["text"].startswith("Looking strong") and sent[0]["uid"] == "anon-viewer1",
+          f"message written with sender and anonymous uid ({sent})")
+    check(page.input_value("#msg-text") == "" and page.input_value("#msg-from") == "Mom", "text cleared, name kept")
+    check(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "no sideways scroll with the form open")
+    page.screenshot(path=str(OUT / "message-sent.png"), full_page=False)
+    page.fill("#msg-text", "And another")
+    page.click("#msg-send")
+    page.wait_for_function("document.querySelector('#msg-note').textContent.includes('Sending in')", timeout=5000)
+    check(True, "second message within 20 s waits for its turn: " + page.inner_text("#msg-note"))
+    page.wait_for_function("document.querySelector('#msg-note').classList.contains('ok')", timeout=30000)
+    check(len(page.evaluate("window.__mockFirebase.sent")) == 2, "then sends")
+    page.reload()
+    page.wait_for_selector("#msg-open", state="visible", timeout=8000)
+    page.click("#msg-open")
+    check(page.input_value("#msg-from") == "Mom", "name remembered after reload")
+    check(not errors, f"no console errors ({errors[:3]})")
+    ctx.close()
+
+    for label, script, expect in (
+        ("old database rules", f"window.__MOCK_MSG_NORULES = ['{HOST_B}'];", "database rules"),
+        ("Anonymous sign-in not enabled", "window.__MOCK_NO_ANON = true;", "Anonymous sign-in"),
+    ):
+        ctx = browser.new_context(viewport={"width": 375, "height": 812})
+        stub_network(ctx)
+        ctx.add_init_script(script)
+        page = ctx.new_page()
+        page.goto(f"{base}/?db=ben-karoo&id=benShare01")
+        page.wait_for_selector("#msg-open", state="visible", timeout=15000)
+        page.click("#msg-open")
+        page.fill("#msg-from", "Sam")
+        page.fill("#msg-text", "Hi")
+        page.click("#msg-send")
+        page.wait_for_function("document.querySelector('#msg-note').classList.contains('bad')", timeout=5000)
+        note = page.inner_text("#msg-note")
+        check(expect in note, f"{label}: clear message ({note})")
+        ctx.close()
+
+
 def main():
     httpd, base = serve()
     with sync_playwright() as p:
@@ -446,6 +515,7 @@ def main():
             test_group(browser, base)
             test_group_dark_desktop(browser, base)
             test_builder(browser, base)
+            test_messages(browser, base)
         finally:
             browser.close()
             httpd.shutdown()

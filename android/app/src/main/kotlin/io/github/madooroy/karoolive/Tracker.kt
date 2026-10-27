@@ -2,6 +2,8 @@ package io.github.madooroy.karoolive
 
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.models.DataType
+import io.hammerhead.karooext.models.InRideAlert
+import io.hammerhead.karooext.models.PlayBeepPattern
 import io.hammerhead.karooext.models.OnNavigationState
 import io.hammerhead.karooext.models.OnStreamState
 import io.hammerhead.karooext.models.RideState
@@ -40,6 +42,9 @@ import kotlin.math.roundToLong
  * /live/<shareId>/route       {poly (precision 5), name, dist} while navigating
  * /live/<shareId>/cur         also gear (Pinion), fg/rg/fgMax/rgMax (derailleurs), shifts (count this ride)
  * /live/<shareId>/track/p<ms> {t,lat,lng,alt,spd,cad,pwr,hr,gear,fg,rg,d} one point per update
+ * /live/<shareId>/msg         {on, key}: viewer messages switched on, and the project's web key they sign in with
+ * /msgs/<shareId>/<id>        {from, text, ts, uid} written by viewers (rate limited by the rules), read here
+ * /msgRate/<shareId>/...      the rules' bookkeeping for those limits
  * ```
  */
 class Tracker(
@@ -64,6 +69,8 @@ class Tracker(
     private val consumerIds = mutableListOf<String>()
     private var pinionConsumer: String? = null
     private val lastGear = ConcurrentHashMap<String, Double>()
+    private val messages = Channel<Pair<String, String>>(Channel.UNLIMITED)
+    private var messagesUnavailableLogged = false
 
     fun start() {
         STREAMED_TYPES.forEach { typeId ->
@@ -108,6 +115,7 @@ class Tracker(
             }
         }
 
+        scope.launch { showMessages() }
         scope.launch {
             while (true) {
                 try {
@@ -243,6 +251,7 @@ class Tracker(
                 put("startedAt", settings.activeRideStartedAt)
                 put("updatedAt", FirebaseClient.SERVER_TIME)
                 put("route", route)
+                put("msg", messageFlag())
             }
             try {
                 firebase.put("live/$shareId", node) // replaces the previous ride on this link, clearing its track
@@ -254,6 +263,7 @@ class Tracker(
                 fail(e) // points stay queued until the connection is back
                 return
             }
+            clearMessages(shareId)
         }
 
         val sentPoints = pendingTrack.keys.toList()
@@ -264,6 +274,7 @@ class Tracker(
             put("name", riderName())
             put("units", units)
             put("cur", cur)
+            put("msg", messageFlag())
             if (includeRoute) put("route", route)
             sentPoints.forEach { key -> pendingTrack[key]?.let { put("track/$key", it) } }
         }
@@ -272,6 +283,88 @@ class Tracker(
             if (includeRoute) routeDirty = false
             settings.setStatus("Live: last update sent ${TIME.format(Date())}")
             Timber.i("Sent update: ${sentPoints.size} point(s), gps=${cur.containsKey("lat")}, hr=${cur.containsKey("hr")}, pwr=${cur.containsKey("pwr")}, cad=${cur.containsKey("cad")}")
+            if (state is RideState.Recording) fetchMessages(shareId)
+        }
+    }
+
+    // ------------------------------------------------------------------ viewer messages
+
+    private fun messageFlag() = buildJsonObject {
+        put("on", settings.messagesEnabled)
+        if (settings.messagesEnabled) put("key", settings.apiKey)
+    }
+
+    /** New ride: drop the previous ride's messages (best effort; needs the current database rules). */
+    private suspend fun clearMessages(shareId: String) {
+        settings.lastMessageTs = 0L
+        settings.rideMessages = 0
+        try {
+            firebase.patch("", buildJsonObject {
+                put("msgs/$shareId", JsonNull)
+                put("msgRate/$shareId", JsonNull)
+            })
+        } catch (e: Exception) {
+            Timber.i("Couldn't clear old messages: ${e.message}")
+        }
+    }
+
+    /** Picks up messages sent since the last check and queues them for display. */
+    private suspend fun fetchMessages(shareId: String) {
+        if (!settings.messagesEnabled) return
+        val since = settings.lastMessageTs
+        val found = try {
+            firebase.get("msgs/$shareId", "orderBy=%22ts%22&startAt=${since + 1}&limitToFirst=20") as? JsonObject
+        } catch (e: Exception) {
+            if (!messagesUnavailableLogged) {
+                messagesUnavailableLogged = true
+                Timber.w("Messages unavailable (update the database rules?): ${e.message}")
+            }
+            return
+        } ?: return
+        messagesUnavailableLogged = false
+        val list = found.values.mapNotNull { v ->
+            val o = v as? JsonObject ?: return@mapNotNull null
+            val ts = (o["ts"] as? JsonPrimitive)?.content?.toLongOrNull() ?: return@mapNotNull null
+            val from = (o["from"] as? JsonPrimitive)?.content?.take(30)?.trim().orEmpty()
+            val text = (o["text"] as? JsonPrimitive)?.content?.take(100)?.trim().orEmpty()
+            if (text.isEmpty()) null else Triple(ts, from.ifEmpty { "Someone" }, text)
+        }.sortedBy { it.first }
+        list.forEach { (ts, from, text) ->
+            settings.lastMessageTs = maxOf(settings.lastMessageTs, ts)
+            if (settings.rideMessages >= MAX_MESSAGES_PER_RIDE) {
+                Timber.i("Message limit for this ride reached; skipping one")
+                return@forEach
+            }
+            settings.rideMessages = settings.rideMessages + 1
+            Timber.i("Message received (${text.length} chars)")
+            messages.trySend(from to text)
+        }
+    }
+
+    /** Shows queued messages one at a time, at most one every 20 seconds, with a beep. */
+    private suspend fun showMessages() {
+        var n = 0
+        for ((from, text) in messages) {
+            if (rideState !is RideState.Recording && rideState !is RideState.Paused) continue // ride ended meanwhile
+            try {
+                karooSystem.dispatch(PlayBeepPattern(listOf(
+                    PlayBeepPattern.Tone(2000, 120), PlayBeepPattern.Tone(null, 80), PlayBeepPattern.Tone(2600, 160),
+                )))
+                karooSystem.dispatch(
+                    InRideAlert(
+                        id = "karoo-live-msg-${++n}",
+                        icon = R.drawable.ic_karoo_live,
+                        title = from,
+                        detail = text,
+                        autoDismissMs = if (settings.messagesStay) null else 15_000L,
+                        backgroundColor = R.color.msg_background,
+                        textColor = R.color.msg_text,
+                    ),
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Couldn't show a message")
+            }
+            delay(MESSAGE_GAP_MS)
         }
     }
 
@@ -402,6 +495,8 @@ class Tracker(
 
     companion object {
         private const val MAX_PENDING = 400
+        private const val MAX_MESSAGES_PER_RIDE = 30
+        private const val MESSAGE_GAP_MS = 20_000L
         private val TIME = SimpleDateFormat("HH:mm:ss", Locale.US)
 
         val STREAMED_TYPES = listOf(

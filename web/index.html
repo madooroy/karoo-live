@@ -26,6 +26,22 @@
       <button class="iconbtn" id="copy">Share</button>
     </header>
     <div class="sub" id="sub">Connecting…</div>
+    <button class="msg-open" id="msg-open" type="button" hidden aria-expanded="false" aria-controls="msg">Send a message</button>
+
+    <section class="card msgcard" id="msg" hidden aria-label="Send a message">
+      <form id="msg-form">
+        <label for="msg-from">From</label>
+        <input id="msg-from" maxlength="30" autocomplete="nickname" placeholder="Your name" required>
+        <label for="msg-text">Message</label>
+        <textarea id="msg-text" maxlength="100" rows="2" placeholder="Short and sweet: it pops up on the rider's Karoo" required></textarea>
+        <div class="msg-row">
+          <span class="msg-count" id="msg-count">0/100</span>
+          <button type="button" class="msg-cancel" id="msg-cancel">Close</button>
+          <button type="submit" id="msg-send">Send</button>
+        </div>
+      </form>
+      <p class="msg-note" id="msg-note" role="status" aria-live="polite"></p>
+    </section>
 
     <div class="grid-main">
       <section class="card mapcard" aria-label="Map">

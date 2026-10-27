@@ -15,7 +15,7 @@
 
   const KL = window.KarooLive;
   const { STALE_MS, SAFE_ID, normalizeHost, num, fmtNum, fmtDuration, ago,
-    firebaseSource, k2tSource, fromFirebase, fromK2t, merge,
+    firebaseSource, k2tSource, sendMessage, fromFirebase, fromK2t, merge,
     STYLE_LIGHT, STYLE_DARK, EMPTY_LINE, css, isDark, lineOf } = KL;
 
   // ---------------------------------------------------------------- units
@@ -50,7 +50,7 @@
   if (k2tId) k2tSource(k2tId, (d) => { gotFirst = true; k2tData = fromK2t(d); update(); },
     (msg) => { if (!fbData) { problem = msg; render(); } });
 
-  setInterval(renderStatus, 1000);
+  setInterval(() => { renderStatus(); renderMessaging(); }, 1000);
 
   // ---------------------------------------------------------------- map
   let map, mapReady = false, riderMarker, riderEl, hoverMarker, follow = true, fitted = false;
@@ -611,6 +611,45 @@
     if (problem && model) sub.textContent = line + " · " + problem;
   }
 
+  // ---------------------------------------------------------------- send a message
+  let msgOpen = false, msgBusy = false;
+  try { $("#msg-from").value = localStorage.getItem("karoolive.from") || ""; } catch (e) { /* storage blocked */ }
+  function msgInfo() { return fbData && fbData.msg && fbData.msg.on ? fbData.msg : null; }
+  function msgAllowed() { return !!(msgInfo() && model && model.state === "recording" && !isStale()); }
+  function setNote(text, cls) { const n = $("#msg-note"); n.textContent = text; n.className = "msg-note " + (cls || ""); }
+  function renderMessaging() {
+    const offered = !!msgInfo();
+    $("#msg-open").hidden = !offered || msgOpen || !msgAllowed();
+    $("#msg").hidden = !offered || !msgOpen;
+    $("#msg-send").disabled = msgBusy || !msgAllowed();
+    if (msgOpen && !msgBusy && !msgAllowed() && !$("#msg-note").classList.contains("ok")) setNote("Messages open again when the rider is recording.");
+    else if (msgOpen && !msgBusy && msgAllowed() && $("#msg-note").textContent.startsWith("Messages open again")) setNote("");
+  }
+  function updateCount() { $("#msg-count").textContent = `${$("#msg-text").value.length}/100`; }
+  $("#msg-text").addEventListener("input", updateCount);
+  $("#msg-open").addEventListener("click", () => {
+    msgOpen = true; setNote(""); renderMessaging();
+    $("#msg-open").setAttribute("aria-expanded", "true");
+    ($("#msg-from").value ? $("#msg-text") : $("#msg-from")).focus();
+  });
+  $("#msg-cancel").addEventListener("click", () => { msgOpen = false; renderMessaging(); });
+  $("#msg-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const from = $("#msg-from").value.trim().slice(0, 30), text = $("#msg-text").value.trim().slice(0, 100);
+    const info = msgInfo();
+    if (!from || !text || !info || msgBusy) return;
+    try { localStorage.setItem("karoolive.from", from); } catch (err) { /* ignore */ }
+    msgBusy = true; renderMessaging(); setNote("Sending…");
+    try {
+      await sendMessage(dbHost, info.key, shareId, from, text, (ms) => setNote(`Lots of messages right now. Sending in ${Math.ceil(ms / 1000)} s…`));
+      $("#msg-text").value = ""; updateCount();
+      setNote("Sent. It pops up on the rider's Karoo within about a minute.", "ok");
+    } catch (err) {
+      setNote(err.message || "Couldn't send.", "bad");
+    }
+    msgBusy = false; renderMessaging();
+  });
+
   let lastStructure = "";
   function render() {
     if (model) {
@@ -621,6 +660,7 @@
     }
     $("#units").textContent = units === "imperial" ? "mi" : "km";
     renderStatus();
+    renderMessaging();
     renderMetrics();
     renderMap();
     // charts only need rebuilding when the track grows

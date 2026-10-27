@@ -114,6 +114,81 @@
     if (onConnection) fb.db.onValue(fb.db.ref(entry.database, ".info/connected"), (snap) => onConnection(snap.val() === true));
   }
 
+  // ---------------------------------------------------------------- viewer messages
+  // A viewer signs in anonymously (no account; the id is remembered by the browser) so the database rules
+  // can limit each sender separately: 3 a minute per person, 10 a minute per ride overall.
+  const MSG_GAP_SENDER = 20000, MSG_GAP_ALL = 6000;
+  const msgApps = new Map();
+  async function messenger(host, apiKey) {
+    const k = host + "|" + apiKey;
+    if (!msgApps.has(k)) {
+      msgApps.set(k, (async () => {
+        const [appMod, db, auth] = await Promise.all([
+          import(FIREBASE + "firebase-app.js"), import(FIREBASE + "firebase-database.js"), import(FIREBASE + "firebase-auth.js")]);
+        const app = appMod.initializeApp({ apiKey, databaseURL: `https://${host}` }, "msg-" + host);
+        return { db, auth, a: auth.getAuth(app), database: db.getDatabase(app) };
+      })());
+      msgApps.get(k).catch(() => msgApps.delete(k));
+    }
+    return msgApps.get(k);
+  }
+
+  class MessageError extends Error {
+    constructor(kind, message) { super(message); this.kind = kind; }
+  }
+
+  /** Milliseconds this viewer must wait before the rules accept another message (0 = now). */
+  async function messageWait(m, shareId) {
+    const { db, a, database } = m;
+    const read = async (path) => (await db.get(db.ref(database, path))).val();
+    const [mine, all, offset] = await Promise.all([
+      read(`msgRate/${shareId}/${a.currentUser.uid}`), read(`msgRate/${shareId}/all`), read(".info/serverTimeOffset")]);
+    const now = Date.now() + (offset || 0);
+    const until = Math.max(mine ? mine.t + MSG_GAP_SENDER : 0, all ? all.t + MSG_GAP_ALL : 0);
+    return Math.max(0, until - now);
+  }
+
+  /**
+   * Sends one message to the rider. onWait(ms) is called while it waits for a free slot.
+   * Throws MessageError with kind "setup" (rider's Firebase not ready), "closed" (not recording) or "failed".
+   */
+  async function sendMessage(host, apiKey, shareId, from, text, onWait) {
+    let m;
+    try {
+      m = await messenger(host, apiKey);
+      if (!m.a.currentUser) await m.auth.signInAnonymously(m.a);
+    } catch (e) {
+      const code = (e && e.code) || "";
+      if (/operation-not-allowed|admin-restricted|configuration-not-found|api-key/.test(code)) {
+        throw new MessageError("setup", "This rider hasn't finished setting up messages (Anonymous sign-in in Firebase).");
+      }
+      throw new MessageError("failed", "Couldn't connect. Check your connection and try again.");
+    }
+    const { db, a, database } = m;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      let wait;
+      try { wait = await messageWait(m, shareId); }
+      catch (e) { throw new MessageError("setup", "This rider hasn't finished setting up messages (database rules)."); }
+      if (wait > 0) { onWait && onWait(wait); await new Promise((r) => setTimeout(r, wait + 300)); }
+      const id = db.push(db.ref(database, `msgs/${shareId}`)).key;
+      const ts = db.serverTimestamp();
+      try {
+        await db.update(db.ref(database), {
+          [`msgs/${shareId}/${id}`]: { from, text, ts, uid: a.currentUser.uid },
+          [`msgRate/${shareId}/all`]: { t: ts, id },
+          [`msgRate/${shareId}/${a.currentUser.uid}`]: { t: ts, id },
+        });
+        return;
+      } catch (e) {
+        // Denied: someone else may have taken the slot a moment earlier, or the ride stopped. Check again.
+        if (!/permission/i.test((e && (e.code || e.message)) || "")) throw new MessageError("failed", "Couldn't send. Check your connection and try again.");
+        const w = await messageWait(m, shareId).catch(() => 0);
+        if (w === 0) throw new MessageError("closed", "The rider isn't recording right now, so messages are off.");
+      }
+    }
+    throw new MessageError("failed", "Lots of messages right now. Please try again in a minute.");
+  }
+
   /** Polls a KarooTracker feed (a copy of Hammerhead's live tracking). */
   function k2tSource(id, onData, onProblem, everyMs = 10000) {
     const url = `https://storagekarootrack.blob.core.windows.net/tracking/${encodeURIComponent(id)}`;
@@ -157,6 +232,8 @@
       })(),
       route,
       track,
+      // Viewer messages: the rider's switch, plus the project's public web key needed to sign in anonymously.
+      msg: t.msg && typeof t.msg === "object" && t.msg.on === true && typeof t.msg.key === "string" ? { on: true, key: t.msg.key } : null,
     };
   }
 
@@ -230,7 +307,7 @@
   window.KarooLive = {
     STALE_MS, SAFE_ID, normalizeHost, num, decodePolyline, haversine,
     fmtNum, fmtDuration, ago, unitFormatters,
-    loadFirebase, firebaseSource, k2tSource, fromFirebase, fromK2t, merge,
+    loadFirebase, firebaseSource, k2tSource, sendMessage, fromFirebase, fromK2t, merge,
     STYLE_LIGHT, STYLE_DARK, EMPTY_LINE, css, isDark, lineOf,
   };
 })();
