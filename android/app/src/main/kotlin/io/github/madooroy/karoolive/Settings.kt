@@ -92,6 +92,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("linkUsed", prefs.contains("shareId") && prefs.getLong("lastStatusAt", 0L) > 0L && !(prefs.getString("lastStatus", "") ?: "").startsWith("Not set up"))
         set(v) = prefs.edit().putBoolean("linkUsed", v).apply()
 
+    /** Gear changes counted during the current ride. */
+    var rideShifts: Int
+        get() = prefs.getInt("rideShifts", 0)
+        set(v) = prefs.edit().putInt("rideShifts", v).apply()
+
     /** Whether the Firebase node for the active ride has been created yet (PUT succeeded). */
     var rideNodeCreated: Boolean
         get() = prefs.getBoolean("rideNodeCreated", false)

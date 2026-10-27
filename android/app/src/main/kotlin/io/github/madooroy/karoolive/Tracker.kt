@@ -38,7 +38,8 @@ import kotlin.math.roundToLong
  * /live/<shareId>/startedAt   ms, /updatedAt server ms, /endedAt server ms
  * /live/<shareId>/cur         latest values {lat,lng,brg,alt,spd,cad,pwr,hr,dist,el (total ms),rt (recording ms),gain,avgSpd,avgPwr,np,bat,grade,temp,toGo,climbLeft}
  * /live/<shareId>/route       {poly (precision 5), name, dist} while navigating
- * /live/<shareId>/track/p<ms> {t,lat,lng,alt,spd,cad,pwr,hr,d} one point per update
+ * /live/<shareId>/cur         also gear (Pinion), fg/rg/fgMax/rgMax (derailleurs), shifts (count this ride)
+ * /live/<shareId>/track/p<ms> {t,lat,lng,alt,spd,cad,pwr,hr,gear,fg,rg,d} one point per update
  * ```
  */
 class Tracker(
@@ -61,12 +62,17 @@ class Tracker(
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private var notifiedErrorThisRide = false
     private val consumerIds = mutableListOf<String>()
+    private var pinionConsumer: String? = null
+    private val lastGear = ConcurrentHashMap<String, Double>()
 
     fun start() {
         STREAMED_TYPES.forEach { typeId ->
             consumerIds += karooSystem.addConsumer(OnStreamState.StartStreaming(typeId)) { event: OnStreamState ->
                 when (val state = event.state) {
-                    is StreamState.Streaming -> latest[typeId] = state.dataPoint.values
+                    is StreamState.Streaming -> {
+                        noteShift(typeId, state.dataPoint.values)
+                        latest[typeId] = state.dataPoint.values
+                    }
                     else -> latest.remove(typeId)
                 }
             }
@@ -75,6 +81,7 @@ class Tracker(
             val changed = rideState == null || state::class != rideState!!::class
             if (changed) Timber.i("Ride state: ${state::class.simpleName}")
             rideState = state
+            updatePinionStream(state is RideState.Recording || state is RideState.Paused)
             if (changed) wake.trySend(Unit)
         }
         consumerIds += karooSystem.addConsumer<UserProfile> { profile ->
@@ -114,7 +121,48 @@ class Tracker(
         }
     }
 
+    /**
+     * Reads the gear from the Pinion extension (github.com/madooroy/PinionKarooExtension) while riding only:
+     * that extension treats an open stream as "ride screen is open" (it times its battery alert on it).
+     */
+    @Synchronized
+    private fun updatePinionStream(riding: Boolean) {
+        if (riding && pinionConsumer == null) {
+            pinionConsumer = karooSystem.addConsumer(OnStreamState.StartStreaming(PINION_GEAR)) { event: OnStreamState ->
+                when (val state = event.state) {
+                    is StreamState.Streaming -> {
+                        noteShift(PINION_GEAR, state.dataPoint.values)
+                        latest[PINION_GEAR] = state.dataPoint.values
+                    }
+                    else -> latest.remove(PINION_GEAR)
+                }
+            }
+            Timber.i("Listening for Pinion gear")
+        } else if (!riding && pinionConsumer != null) {
+            pinionConsumer?.let { karooSystem.removeConsumer(it) }
+            pinionConsumer = null
+            latest.remove(PINION_GEAR)
+        }
+    }
+
+    /** Counts gear changes during a recording ride (any of Pinion, front or rear derailleur). */
+    private fun noteShift(typeId: String, values: Map<String, Double>) {
+        if (typeId != PINION_GEAR && typeId != DataType.Type.SHIFTING_FRONT_GEAR && typeId != DataType.Type.SHIFTING_REAR_GEAR) return
+        val now = gearOf(typeId, values) ?: return
+        val before = lastGear.put(typeId, now)
+        if (before != null && before != now && rideState is RideState.Recording) {
+            settings.rideShifts = settings.rideShifts + 1
+        }
+    }
+
+    private fun gearOf(typeId: String, values: Map<String, Double>): Double? = when (typeId) {
+        DataType.Type.SHIFTING_FRONT_GEAR -> values[DataType.Field.SHIFTING_FRONT_GEAR]
+        DataType.Type.SHIFTING_REAR_GEAR -> values[DataType.Field.SHIFTING_REAR_GEAR]
+        else -> values[DataType.Field.SINGLE] ?: values.values.singleOrNull()
+    }?.takeIf { !it.isNaN() && it > 0 }
+
     fun stop() {
+        updatePinionStream(false)
         consumerIds.forEach { karooSystem.removeConsumer(it) }
         consumerIds.clear()
     }
@@ -234,6 +282,7 @@ class Tracker(
         settings.activeRideStartedAt = now
         settings.activeRideShareId = shareId
         settings.rideNodeCreated = false
+        settings.rideShifts = 0
     }
 
     /** Marks the tracked ride finished (sending any queued points). Returns true once it's done. */
@@ -314,11 +363,22 @@ class Tracker(
         value(DataType.Type.TEMPERATURE, DataType.Field.TEMPERATURE)?.let { put("temp", round(it, 1)) }
         value(DataType.Type.DISTANCE_TO_DESTINATION, DataType.Field.DISTANCE_TO_DESTINATION)?.let { put("toGo", round(it, 0)) }
         value(DataType.Type.ELEVATION_REMAINING, DataType.Field.ASCENT_REMAINING)?.let { put("climbLeft", round(it, 0)) }
+        // Gears: Pinion gearbox (via its extension) or electronic derailleurs reported by the Karoo
+        latest[PINION_GEAR]?.let { gearOf(PINION_GEAR, it) }?.let { put("gear", round(it, 0)) }
+        latest[DataType.Type.SHIFTING_FRONT_GEAR]?.let { v ->
+            gearOf(DataType.Type.SHIFTING_FRONT_GEAR, v)?.let { put("fg", round(it, 0)) }
+            v[DataType.Field.SHIFTING_FRONT_GEAR_MAX]?.let { put("fgMax", round(it, 0)) }
+        }
+        latest[DataType.Type.SHIFTING_REAR_GEAR]?.let { v ->
+            gearOf(DataType.Type.SHIFTING_REAR_GEAR, v)?.let { put("rg", round(it, 0)) }
+            v[DataType.Field.SHIFTING_REAR_GEAR_MAX]?.let { put("rgMax", round(it, 0)) }
+        }
+        if (latest.containsKey(PINION_GEAR) || latest.containsKey(DataType.Type.SHIFTING_REAR_GEAR)) put("shifts", settings.rideShifts)
     }
 
     private fun trackPoint(now: Long, cur: JsonObject): JsonObject = buildJsonObject {
         put("t", now)
-        listOf("lat", "lng", "alt", "spd", "cad", "pwr", "hr").forEach { k -> cur[k]?.let { put(k, it) } }
+        listOf("lat", "lng", "alt", "spd", "cad", "pwr", "hr", "gear", "fg", "rg").forEach { k -> cur[k]?.let { put(k, it) } }
         cur["dist"]?.let { put("d", it) }
     }
 
@@ -363,6 +423,11 @@ class Tracker(
             DataType.Type.TEMPERATURE,
             DataType.Type.DISTANCE_TO_DESTINATION,
             DataType.Type.ELEVATION_REMAINING,
+            DataType.Type.SHIFTING_FRONT_GEAR,
+            DataType.Type.SHIFTING_REAR_GEAR,
         )
+
+        /** Current gear published by the Pinion extension (extension id "pinion", data type "gear"). */
+        val PINION_GEAR: String = DataType.dataTypeId("pinion", "gear")
     }
 }

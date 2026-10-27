@@ -157,6 +157,9 @@
     { key: "toGo", label: "To go", fmt: (v) => fmtDist(v), optional: true },
     { key: "climbLeft", label: "Climb left", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; }, optional: true },
     { key: "temp", label: "Temp", fmt: (v) => { const [x, u] = U.temp(v); return [fmtNum(x, 0), u]; }, optional: true },
+    { key: "gear", label: "Gear", optional: true, liveOnly: true, fmt: () => [gearText((model && model.cur) || {}), ""] },
+    { key: "shifts", label: "Shifts", optional: true, fmt: (v) => [fmtNum(v, 0), ""] },
+    { key: "avgGear", label: "Avg gear", optional: true, finishedOnly: true, fmt: (v) => [fmtNum(v, 1), ""] },
     { key: "bat", label: "Battery", fmt: (v) => [fmtNum(v, 0), "%"] },
   ];
 
@@ -178,6 +181,13 @@
     }
     el.append(label, val);
     return el;
+  }
+
+  /** "7" for a gearbox, "2 × 9" for front and rear derailleurs. */
+  function gearText(p, gear) {
+    const g = num(gear ?? p.gear);
+    if (g == null) return "—";
+    return num(p.fg) != null ? `${fmtNum(p.fg, 0)} × ${fmtNum(g, 0)}` : fmtNum(g, 0);
   }
 
   // After the ride: averages instead of live values (cadence average ignores coasting, like most apps).
@@ -236,8 +246,9 @@
     }
     const sec = $("#metrics-secondary"); sec.replaceChildren();
     SECONDARY.forEach((d) => {
-      if (finished && LIVE_ONLY.has(d.key)) return;
-      const v = num(c[d.key]);
+      if (finished && (LIVE_ONLY.has(d.key) || d.liveOnly)) return;
+      if (!finished && d.finishedOnly) return;
+      const v = d.key === "avgGear" ? (trackStats("gear") || {}).avg ?? null : num(c[d.key]);
       if (d.optional && v == null) return;
       sec.append(tile(d, v));
     });
@@ -250,7 +261,8 @@
     { key: "spd", label: "Speed", fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; }, minSpan: 3 },
     { key: "pwr", label: "Power", fmt: (v) => [fmtNum(v, 0), "W"], minSpan: 50 },
     { key: "hr", label: "Heart rate", short: "HR", fmt: (v) => [fmtNum(v, 0), "bpm"], minSpan: 20 },
-    { key: "cad", label: "Cadence", fmt: (v) => [fmtNum(v, 0), "rpm"], minSpan: 20 },
+    { key: "cad", label: "Cadence", short: "Cad", fmt: (v) => [fmtNum(v, 0), "rpm"], minSpan: 20 },
+    { key: "gear", label: "Gear", fmt: (v) => [fmtNum(v, 0), ""], minSpan: 3, step: true },
   ];
   let chartState = null; // {xs, rows, charts:[{def, svg, y, readout, ...}]}
   let hoverPx = null;
@@ -280,6 +292,7 @@
       }
       const X = sx(xs[i]), Y = sy(v);
       if (!open) { d += `M${X.toFixed(1)},${Y.toFixed(1)}`; if (def.area) area += `M${X.toFixed(1)},${Y.toFixed(1)}`; segStart = X; open = true; }
+      else if (def.step) { d += `H${X.toFixed(1)}V${Y.toFixed(1)}`; }
       else { d += `L${X.toFixed(1)},${Y.toFixed(1)}`; if (def.area) area += `L${X.toFixed(1)},${Y.toFixed(1)}`; }
       lastX = X;
     });
@@ -378,19 +391,20 @@
   function setReadouts(idx) {
     if (!chartState) return;
     chartState.charts.forEach((c) => {
-      let v, at = "";
+      let v, at = "", row = null;
       if (idx == null) {
         // latest value in the track
-        for (let i = c.vals.length - 1; i >= 0; i--) if (c.vals[i] != null) { v = c.vals[i]; break; }
+        for (let i = c.vals.length - 1; i >= 0; i--) if (c.vals[i] != null) { v = c.vals[i]; row = chartState.rows[i]; break; }
         c.cross.setAttribute("visibility", "hidden");
       } else {
         v = c.vals[idx];
+        row = chartState.rows[idx];
         const X = chartState.sx(chartState.xs[idx]);
         c.cross.setAttribute("x1", X); c.cross.setAttribute("x2", X); c.cross.setAttribute("visibility", "visible");
       }
       c.readout.replaceChildren();
       if (v == null) { c.readout.textContent = "—"; return; }
-      const [t, u] = c.def.fmt(v);
+      const [t, u] = c.def.key === "gear" ? [gearText(row || {}, v), ""] : c.def.fmt(v);
       c.readout.append(t);
       const s = document.createElement("small"); s.textContent = u + at; c.readout.append(s);
     });

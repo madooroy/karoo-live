@@ -135,7 +135,9 @@
     if (!t || typeof t !== "object") return null;
     const track = Object.values(t.track || {})
       .filter((p) => p && num(p.lat) != null && num(p.lng) != null)
-      .sort((a, b) => a.t - b.t);
+      .sort((a, b) => a.t - b.t)
+      // Derailleurs: chart the rear gear as "gear" (front gear kept as fg for the label).
+      .map((p) => (num(p.gear) == null && num(p.rg) != null ? { ...p, gear: p.rg } : p));
     let route = null;
     if (t.route && typeof t.route.poly === "string") {
       try { route = { points: decodePolyline(t.route.poly), name: t.route.name || "", dist: num(t.route.dist) }; } catch (e) { route = null; }
@@ -148,7 +150,11 @@
       updatedAt: num(t.updatedAt) || num(t.lastTest),
       startedAt: num(t.startedAt),
       endedAt: num(t.endedAt),
-      cur: t.cur && typeof t.cur === "object" ? t.cur : {},
+      cur: (() => {
+        const c = t.cur && typeof t.cur === "object" ? { ...t.cur } : {};
+        if (num(c.gear) == null && num(c.rg) != null) c.gear = c.rg;
+        return c;
+      })(),
       route,
       track,
     };
