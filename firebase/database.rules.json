@@ -14,15 +14,27 @@
       "$shareId": {
         ".read": "auth != null && root.child('owner').val() === auth.uid",
         ".write": "auth != null && root.child('owner').val() === auth.uid",
-        ".indexOn": ["ts"],
+        ".indexOn": [
+          "ts"
+        ],
         "$msgId": {
           ".write": "auth != null && !data.exists() && newData.exists()",
           ".validate": "newData.hasChildren(['from', 'text', 'ts', 'uid']) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && root.child('live').child($shareId).child('state').val() === 'recording' && root.child('live').child($shareId).child('msg').child('on').val() === true && newData.parent().parent().parent().child('msgRate').child($shareId).child('all').child('id').val() === $msgId && newData.parent().parent().parent().child('msgRate').child($shareId).child(auth.uid).child('id').val() === $msgId",
-          "from": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30" },
-          "text": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100" },
-          "ts": { ".validate": "newData.isNumber()" },
-          "uid": { ".validate": "newData.isString()" },
-          "$other": { ".validate": false }
+          "from": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30"
+          },
+          "text": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100"
+          },
+          "ts": {
+            ".validate": "newData.isNumber()"
+          },
+          "uid": {
+            ".validate": "newData.isString()"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     },
@@ -30,12 +42,32 @@
       "$shareId": {
         ".write": "auth != null && root.child('owner').val() === auth.uid",
         "all": {
-          ".write": "auth != null",
-          ".validate": "newData.hasChildren(['t', 'id']) && newData.child('t').val() === now && (!data.exists() || now - data.child('t').val() >= 6000) && newData.parent().parent().parent().child('msgs').child($shareId).child(newData.child('id').val()).exists() && !root.child('msgs').child($shareId).child(newData.child('id').val()).exists()"
+          ".read": "auth != null",
+          "t": {
+            ".write": "auth != null && newData.exists()",
+            ".validate": "newData.isNumber() && newData.val() === now && (!data.exists() || now - data.val() >= 6000) && newData.parent().child('id').val() !== data.parent().child('id').val()"
+          },
+          "id": {
+            ".write": "auth != null && newData.exists()",
+            ".validate": "newData.isString() && newData.parent().child('t').val() === now && newData.parent().parent().parent().parent().child('msgs').child($shareId).child(newData.val()).exists() && !root.child('msgs').child($shareId).child(newData.val()).exists()"
+          },
+          "$other": {
+            ".validate": false
+          }
         },
         "$uid": {
-          ".write": "auth != null && auth.uid === $uid",
-          ".validate": "newData.hasChildren(['t', 'id']) && newData.child('t').val() === now && (!data.exists() || now - data.child('t').val() >= 20000) && newData.parent().parent().parent().child('msgs').child($shareId).child(newData.child('id').val()).exists() && !root.child('msgs').child($shareId).child(newData.child('id').val()).exists()"
+          ".read": "auth != null && auth.uid === $uid",
+          "t": {
+            ".write": "auth != null && newData.exists() && auth.uid === $uid",
+            ".validate": "newData.isNumber() && newData.val() === now && (!data.exists() || now - data.val() >= 20000) && newData.parent().child('id').val() !== data.parent().child('id').val()"
+          },
+          "id": {
+            ".write": "auth != null && newData.exists() && auth.uid === $uid",
+            ".validate": "newData.isString() && newData.parent().child('t').val() === now && newData.parent().parent().parent().parent().child('msgs').child($shareId).child(newData.val()).exists() && !root.child('msgs').child($shareId).child(newData.val()).exists()"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }

@@ -641,7 +641,7 @@
     try { localStorage.setItem("karoolive.from", from); } catch (err) { /* ignore */ }
     msgBusy = true; renderMessaging(); setNote("Sending…");
     try {
-      await sendMessage(dbHost, info.key, shareId, from, text, (ms) => setNote(`Lots of messages right now. Sending in ${Math.ceil(ms / 1000)} s…`));
+      await sendMessage(dbHost, info.key, shareId, from, text, (ms) => setNote(`Messages are spaced out a little. Sending in ${Math.ceil(ms / 1000)} s…`));
       $("#msg-text").value = ""; updateCount();
       setNote("Sent. It pops up on the rider's Karoo within about a minute.", "ok");
     } catch (err) {

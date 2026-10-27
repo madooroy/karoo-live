@@ -175,8 +175,9 @@
       try {
         await db.update(db.ref(database), {
           [`msgs/${shareId}/${id}`]: { from, text, ts, uid: a.currentUser.uid },
-          [`msgRate/${shareId}/all`]: { t: ts, id },
-          [`msgRate/${shareId}/${a.currentUser.uid}`]: { t: ts, id },
+          // field by field: the rules check each one, so a rate record can't be reset or deleted
+          [`msgRate/${shareId}/all/t`]: ts, [`msgRate/${shareId}/all/id`]: id,
+          [`msgRate/${shareId}/${a.currentUser.uid}/t`]: ts, [`msgRate/${shareId}/${a.currentUser.uid}/id`]: id,
         });
         return;
       } catch (e) {

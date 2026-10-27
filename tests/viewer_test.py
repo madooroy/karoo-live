@@ -184,6 +184,8 @@ def check(cond, msg):
     print(("  ok   " if cond else "  FAIL ") + msg)
     if not cond:
         FAILS.append(msg)
+        if os.environ.get("GITHUB_ACTIONS"):
+            print("::error::" + msg.replace("\n", " ")[:900])
 
 
 def watch_console(page, errors):
