@@ -175,7 +175,7 @@ a { color: var(--track); }
 
 /* ---------- map ---------- */
 .mapcard { overflow: hidden; position: relative; }
-#map { height: 46vh; min-height: 280px; max-height: 560px; background: var(--surface-2); }
+#map { height: 40vh; min-height: 250px; max-height: 560px; background: var(--surface-2); }
 @media (min-width: 900px) { #map { height: 600px; max-height: none; } }
 .map-legend {
   position: absolute; right: 10px; top: 10px; z-index: 500;
@@ -274,6 +274,22 @@ a { color: var(--track); }
 .chart svg .cross-dot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
 .chart .empty { padding: 18px 14px; color: var(--text-3); font-size: 13px; }
 .xaxis { display: flex; justify-content: space-between; padding: 2px 14px 4px; font-size: 11px; color: var(--text-3); }
+
+/* chart under the map */
+.quick { padding: 8px 0 6px; }
+.quick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 10px 4px; flex-wrap: wrap; }
+.quick-head .hint { font-size: 12px; color: var(--text-3); }
+.quick-pick { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.quick-pick::-webkit-scrollbar { display: none; }
+.chip {
+  border: 1px solid var(--line); background: var(--surface); color: var(--text-2);
+  border-radius: 999px; padding: 5px 11px; font: 600 12px var(--ui); white-space: nowrap; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.chip::before { content: ""; width: 10px; height: 3px; border-radius: 2px; background: var(--chart-color); }
+.chip.on { background: var(--text); color: var(--surface); border-color: var(--text); }
+.quick .chart svg { height: 100px; }
+.quick .chart-title { padding-top: 2px; }
 
 details.table { padding: 4px 14px 12px; }
 details.table summary { cursor: pointer; font-size: 13px; color: var(--text-2); padding: 6px 0; }

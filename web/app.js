@@ -249,11 +249,69 @@
     { key: "alt", label: "Elevation", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; }, area: true, minSpan: 30 },
     { key: "spd", label: "Speed", fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; }, minSpan: 3 },
     { key: "pwr", label: "Power", fmt: (v) => [fmtNum(v, 0), "W"], minSpan: 50 },
-    { key: "hr", label: "Heart rate", fmt: (v) => [fmtNum(v, 0), "bpm"], minSpan: 20 },
+    { key: "hr", label: "Heart rate", short: "HR", fmt: (v) => [fmtNum(v, 0), "bpm"], minSpan: 20 },
     { key: "cad", label: "Cadence", fmt: (v) => [fmtNum(v, 0), "rpm"], minSpan: 20 },
   ];
   let chartState = null; // {xs, rows, charts:[{def, svg, y, readout, ...}]}
-  let hoverPx = null; // pointer position in chart units while the reader is inspecting
+  let hoverPx = null;
+  let quickKey = "alt";
+  try { quickKey = localStorage.getItem("karoolive.quick") || "alt"; } catch (e) { /* storage blocked */ } // pointer position in chart units while the reader is inspecting
+
+  /** Draws one metric's chart; shared by the full chart list and the chart under the map. */
+  function drawChart(def, rows, xs, sx, W, H) {
+    const padL = 14, padR = 14, padT = 8, padB = 8;
+    const vals = rows.map((p) => num(p[def.key]));
+    const present = vals.filter((v) => v != null);
+    const vmin = Math.min(...present), vmax = Math.max(...present);
+    const span = Math.max(vmax - vmin, def.minSpan || 1);
+    const lo = vmin - span * 0.08, hi = vmin + span * 1.08;
+    const sy = (v) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
+
+    // break the line where samples are missing or there is a long time gap
+    let d = "", area = "", open = false, segStart = null, lastX = null;
+    const gapMs = 120000;
+    rows.forEach((p, i) => {
+      const v = vals[i];
+      const gap = i > 0 && num(p.t) != null && num(rows[i - 1].t) != null && p.t - rows[i - 1].t > gapMs;
+      if (v == null || gap) {
+        if (open && def.area) area += `L${lastX.toFixed(1)},${H - padB}L${segStart.toFixed(1)},${H - padB}Z`;
+        open = false;
+        if (v == null) return;
+      }
+      const X = sx(xs[i]), Y = sy(v);
+      if (!open) { d += `M${X.toFixed(1)},${Y.toFixed(1)}`; if (def.area) area += `M${X.toFixed(1)},${Y.toFixed(1)}`; segStart = X; open = true; }
+      else { d += `L${X.toFixed(1)},${Y.toFixed(1)}`; if (def.area) area += `L${X.toFixed(1)},${Y.toFixed(1)}`; }
+      lastX = X;
+    });
+    if (open && def.area) area += `L${lastX.toFixed(1)},${H - padB}L${segStart.toFixed(1)},${H - padB}Z`;
+
+    const wrap = document.createElement("div"); wrap.className = "chart";
+    wrap.style.setProperty("--chart-color", `var(--c-${def.key})`);
+    const title = document.createElement("div"); title.className = "chart-title";
+    const name = document.createElement("span");
+    const sw = document.createElement("i"); sw.className = "swatch"; sw.setAttribute("aria-hidden", "true");
+    name.append(sw, def.label);
+    const range = document.createElement("small"); range.className = "range";
+    range.textContent = `${def.fmt(vmin)[0]}–${def.fmt(vmax).join(" ")}`;
+    name.append(range);
+    const readout = document.createElement("span"); readout.className = "readout";
+    title.append(name, readout);
+    const [hiTxt, unit] = def.fmt(vmax), [loTxt] = def.fmt(vmin);
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", `${def.label} over the ride, from ${loTxt} to ${hiTxt} ${unit}`);
+    svg.innerHTML =
+      `<line class="gridline" x1="${padL}" x2="${W - padR}" y1="${padT}" y2="${padT}"/>` +
+      `<line class="gridline" x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}"/>` +
+      (def.area ? `<path class="area" d="${area}"/>` : "") +
+      `<path class="series" d="${d}" vector-effect="non-scaling-stroke"/>` +
+      `<line class="cross" x1="0" x2="0" y1="${padT}" y2="${H - padB}" visibility="hidden" vector-effect="non-scaling-stroke"/>`;
+    wrap.append(title, svg);
+    return { def, svg, vals, readout, sy, cross: svg.querySelector(".cross"), W, wrap };
+  }
 
   function renderCharts() {
     const box = $("#charts-body");
@@ -262,7 +320,7 @@
     const rows = track.filter((p) => (useDist ? num(p.d) != null : num(p.t) != null));
     const visible = CHARTS.filter((d) => rows.filter((p) => num(p[d.key]) != null).length >= 2);
     $("#charts").hidden = visible.length === 0;
-    if (!visible.length) { chartState = null; return; }
+    if (!visible.length) { chartState = null; $("#quick").hidden = true; return; }
     const xs = rows.map((p) => (useDist ? p.d : p.t));
     const x0 = xs[0], x1 = xs[xs.length - 1] === x0 ? x0 + 1 : xs[xs.length - 1];
     const W = Math.max(280, box.clientWidth || 600), H = 86, padL = 14, padR = 14, padT = 8, padB = 8;
@@ -271,58 +329,9 @@
     box.replaceChildren();
     const charts = [];
     visible.forEach((def) => {
-      const vals = rows.map((p) => num(p[def.key]));
-      const present = vals.filter((v) => v != null);
-      const vmin = Math.min(...present), vmax = Math.max(...present);
-      const span = Math.max(vmax - vmin, def.minSpan || 1);
-      const lo = vmin - span * 0.08, hi = vmin + span * 1.08;
-      const sy = (v) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
-
-      // break the line where samples are missing or there is a long time gap
-      let d = "", area = "", open = false, segStart = null, lastX = null;
-      const gapMs = 120000;
-      rows.forEach((p, i) => {
-        const v = vals[i];
-        const gap = i > 0 && num(p.t) != null && num(rows[i - 1].t) != null && p.t - rows[i - 1].t > gapMs;
-        if (v == null || gap) {
-          if (open && def.area) area += `L${lastX.toFixed(1)},${H - padB}L${segStart.toFixed(1)},${H - padB}Z`;
-          open = false;
-          if (v == null) return;
-        }
-        const X = sx(xs[i]), Y = sy(v);
-        if (!open) { d += `M${X.toFixed(1)},${Y.toFixed(1)}`; if (def.area) area += `M${X.toFixed(1)},${Y.toFixed(1)}`; segStart = X; open = true; }
-        else { d += `L${X.toFixed(1)},${Y.toFixed(1)}`; if (def.area) area += `L${X.toFixed(1)},${Y.toFixed(1)}`; }
-        lastX = X;
-      });
-      if (open && def.area) area += `L${lastX.toFixed(1)},${H - padB}L${segStart.toFixed(1)},${H - padB}Z`;
-
-      const wrap = document.createElement("div"); wrap.className = "chart";
-      wrap.style.setProperty("--chart-color", `var(--c-${def.key})`);
-      const title = document.createElement("div"); title.className = "chart-title";
-      const name = document.createElement("span");
-      const sw = document.createElement("i"); sw.className = "swatch"; sw.setAttribute("aria-hidden", "true");
-      name.append(sw, def.label);
-      const range = document.createElement("small"); range.className = "range";
-      range.textContent = `${def.fmt(vmin)[0]}–${def.fmt(vmax).join(" ")}`;
-      name.append(range);
-      const readout = document.createElement("span"); readout.className = "readout";
-      title.append(name, readout);
-      const [hiTxt, unit] = def.fmt(vmax), [loTxt] = def.fmt(vmin);
-      const NS = "http://www.w3.org/2000/svg";
-      const svg = document.createElementNS(NS, "svg");
-      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-      svg.setAttribute("preserveAspectRatio", "none");
-      svg.setAttribute("role", "img");
-      svg.setAttribute("aria-label", `${def.label} over the ride, from ${loTxt} to ${hiTxt} ${unit}`);
-      svg.innerHTML =
-        `<line class="gridline" x1="${padL}" x2="${W - padR}" y1="${padT}" y2="${padT}"/>` +
-        `<line class="gridline" x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}"/>` +
-        (def.area ? `<path class="area" d="${area}"/>` : "") +
-        `<path class="series" d="${d}" vector-effect="non-scaling-stroke"/>` +
-        `<line class="cross" x1="0" x2="0" y1="${padT}" y2="${H - padB}" visibility="hidden" vector-effect="non-scaling-stroke"/>`;
-      wrap.append(title, svg);
-      box.append(wrap);
-      charts.push({ def, svg, vals, readout, sy, cross: svg.querySelector(".cross"), W });
+      const c = drawChart(def, rows, xs, sx, W, H);
+      box.append(c.wrap);
+      charts.push(c);
     });
 
     const axis = document.createElement("div"); axis.className = "xaxis";
@@ -331,6 +340,28 @@
     else { a.textContent = new Date(x0).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); b.textContent = new Date(x1).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
     axis.append(a, b);
     box.append(axis);
+
+    // One chart under the map (picker chooses which), so phones see map + chart together.
+    const quick = $("#quick"), qBody = $("#quick-body"), qPick = $("#quick-pick");
+    quick.hidden = false;
+    if (!visible.some((d) => d.key === quickKey)) quickKey = visible[0].key;
+    qPick.replaceChildren();
+    visible.forEach((d) => {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "chip" + (d.key === quickKey ? " on" : "");
+      btn.style.setProperty("--chart-color", `var(--c-${d.key})`);
+      btn.setAttribute("aria-pressed", String(d.key === quickKey));
+      btn.textContent = d.short || d.label;
+      btn.addEventListener("click", () => {
+        quickKey = d.key;
+        try { localStorage.setItem("karoolive.quick", quickKey); } catch (e) { /* ignore */ }
+        lastStructure = ""; render();
+      });
+      qPick.append(btn);
+    });
+    const qc = drawChart(visible.find((d) => d.key === quickKey), rows, xs, sx, W, 96);
+    qBody.replaceChildren(qc.wrap);
+    charts.push(qc);
 
     chartState = { rows, xs, sx, charts, useDist, W, padL, padR };
     setReadouts(hoverPx == null ? null : nearestIndex(hoverPx));
@@ -364,10 +395,14 @@
       const s = document.createElement("small"); s.textContent = u + at; c.readout.append(s);
     });
     // where on the ride
-    const where = $("#chart-where");
-    if (idx == null) { where.textContent = chartState.useDist ? "Drag across to inspect" : ""; if (hoverMarker) hoverMarker.remove(); hoverMarker = null; return; }
+    const wheres = [$("#chart-where"), $("#quick-where")];
+    if (idx == null) {
+      wheres.forEach((w) => { w.textContent = chartState.useDist ? "Drag across to inspect" : ""; });
+      if (hoverMarker) hoverMarker.remove(); hoverMarker = null; return;
+    }
     const p = chartState.rows[idx];
-    where.textContent = chartState.useDist ? `at ${fmtDist(p.d - chartState.xs[0]).join(" ")}` : new Date(p.t).toLocaleTimeString();
+    const whereText = chartState.useDist ? `at ${fmtDist(p.d - chartState.xs[0]).join(" ")}` : new Date(p.t).toLocaleTimeString();
+    wheres.forEach((w) => { w.textContent = whereText; });
     if (map && num(p.lat) != null) {
       if (!hoverMarker) {
         const el = document.createElement("div"); el.className = "hover-dot";
@@ -378,7 +413,7 @@
 
   function onChartPointer(e) {
     if (!chartState) return;
-    const svg = chartState.charts[0].svg;
+    const svg = e.target.closest && e.target.closest(".chart") ? e.target.closest(".chart").querySelector("svg") : chartState.charts[0].svg;
     const r = svg.getBoundingClientRect();
     hoverPx = ((e.clientX - r.left) / r.width) * chartState.W;
     setReadouts(nearestIndex(hoverPx));
@@ -386,6 +421,9 @@
   $("#charts-body").addEventListener("pointermove", onChartPointer);
   $("#charts-body").addEventListener("pointerdown", onChartPointer);
   $("#charts-body").addEventListener("pointerleave", () => { hoverPx = null; setReadouts(null); });
+  $("#quick-body").addEventListener("pointermove", onChartPointer);
+  $("#quick-body").addEventListener("pointerdown", onChartPointer);
+  $("#quick-body").addEventListener("pointerleave", () => { hoverPx = null; setReadouts(null); });
 
   function renderTable(rows, useDist) {
     const body = $("#table-body"); body.replaceChildren();
