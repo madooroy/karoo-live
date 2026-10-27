@@ -475,7 +475,7 @@ def test_messages(browser, base):
     check(page.input_value("#msg-text") == "" and page.input_value("#msg-from") == "Mom", "text cleared, name kept")
     wide = page.evaluate("""[...document.querySelectorAll('body *')].filter(e => e.getBoundingClientRect().right > innerWidth + 0.5)
         .slice(0, 6).map(e => (e.id || e.className || e.tagName) + ':' + Math.round(e.getBoundingClientRect().right))""")
-    check(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"no sideways scroll with the form open {wide}")
+    check(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"no sideways scroll with the form open {wide} " + page.evaluate("JSON.stringify([document.documentElement.scrollWidth, document.documentElement.clientWidth, innerWidth, document.body.scrollWidth, [...document.querySelectorAll('body *')].map(e => [e.id || e.className || e.tagName, e.scrollWidth, e.clientWidth]).filter(x => x[1] > 375).slice(0, 5)])"))
     page.screenshot(path=str(OUT / "message-sent.png"), full_page=False)
     page.fill("#msg-text", "And another")
     page.click("#msg-send")
