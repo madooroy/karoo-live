@@ -160,7 +160,7 @@
     } catch (e) {
       const code = (e && e.code) || "";
       if (/operation-not-allowed|admin-restricted|configuration-not-found|api-key/.test(code)) {
-        throw new MessageError("setup", "This rider hasn't finished setting up messages (Anonymous sign-in in Firebase).");
+        throw new MessageError("setup", "This rider hasn't finished setting up messages (Anonymous sign-in and sign-ups in Firebase).");
       }
       throw new MessageError("failed", "Couldn't connect. Check your connection and try again.");
     }

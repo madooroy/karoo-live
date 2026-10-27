@@ -391,3 +391,4 @@ footer { margin-top: 22px; font-size: 12px; color: var(--text-3); text-align: ce
 .msg-note:empty { display: none; }
 .msg-note.ok { color: var(--ok, #2f8f4e); }
 .msg-note.bad { color: var(--c-hr); }
+#live { overflow-x: clip; } /* sub-pixel rounding must never make the page pan sideways */

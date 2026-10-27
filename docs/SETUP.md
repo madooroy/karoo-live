@@ -21,7 +21,7 @@ Firebase is Google's app backend. The free "Spark" plan is far more than one rid
    - Location: pick the one nearest you (United States is fine for North America).
    - Security rules: choose **Start in locked mode**.
 
-3. **Paste the rules.** The database page has tabs across the top: **Data, Rules, Backups, Usage**. Open **Rules**: it's a text editor showing a few lines of JSON. Click inside it, select everything (Ctrl+A / Cmd+A), delete it, paste the the contents of [`firebase/database.rules.json`](../firebase/database.rules.json) (also shown below), and click **Publish**.
+3. **Paste the rules.** The database page has tabs across the top: **Data, Rules, Backups, Usage**. Open **Rules**: it's a text editor showing a few lines of JSON. Click inside it, select everything (Ctrl+A / Cmd+A), delete it, paste the contents of [`firebase/database.rules.json`](../firebase/database.rules.json) (also shown below), and click **Publish**.
 
    ```json
    {
@@ -35,20 +35,82 @@ Firebase is Google's app backend. The free "Spark" plan is far more than one rid
            ".read": true,
            ".write": "auth != null && root.child('owner').val() === auth.uid"
          }
+       },
+       "msgs": {
+         "$shareId": {
+           ".read": "auth != null && root.child('owner').val() === auth.uid",
+           ".write": "auth != null && root.child('owner').val() === auth.uid",
+           ".indexOn": [
+             "ts"
+           ],
+           "$msgId": {
+             ".write": "auth != null && !data.exists() && newData.exists()",
+             ".validate": "newData.hasChildren(['from', 'text', 'ts', 'uid']) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && root.child('live').child($shareId).child('state').val() === 'recording' && root.child('live').child($shareId).child('msg').child('on').val() === true && newData.parent().parent().parent().child('msgRate').child($shareId).child('all').child('id').val() === $msgId && newData.parent().parent().parent().child('msgRate').child($shareId).child(auth.uid).child('id').val() === $msgId",
+             "from": {
+               ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30"
+             },
+             "text": {
+               ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100"
+             },
+             "ts": {
+               ".validate": "newData.isNumber()"
+             },
+             "uid": {
+               ".validate": "newData.isString()"
+             },
+             "$other": {
+               ".validate": false
+             }
+           }
+         }
+       },
+       "msgRate": {
+         "$shareId": {
+           ".write": "auth != null && root.child('owner').val() === auth.uid",
+           "all": {
+             ".read": "auth != null",
+             "t": {
+               ".write": "auth != null && newData.exists()",
+               ".validate": "newData.isNumber() && newData.val() === now && (!data.exists() || now - data.val() >= 6000) && newData.parent().child('id').val() !== data.parent().child('id').val()"
+             },
+             "id": {
+               ".write": "auth != null && newData.exists()",
+               ".validate": "newData.isString() && newData.parent().child('t').val() === now && newData.parent().parent().parent().parent().child('msgs').child($shareId).child(newData.val()).exists() && !root.child('msgs').child($shareId).child(newData.val()).exists()"
+             },
+             "$other": {
+               ".validate": false
+             }
+           },
+           "$uid": {
+             ".read": "auth != null && auth.uid === $uid",
+             "t": {
+               ".write": "auth != null && newData.exists() && auth.uid === $uid",
+               ".validate": "newData.isNumber() && newData.val() === now && (!data.exists() || now - data.val() >= 20000) && newData.parent().child('id').val() !== data.parent().child('id').val()"
+             },
+             "id": {
+               ".write": "auth != null && newData.exists() && auth.uid === $uid",
+               ".validate": "newData.isString() && newData.parent().child('t').val() === now && newData.parent().parent().parent().parent().child('msgs').child($shareId).child(newData.val()).exists() && !root.child('msgs').child($shareId).child(newData.val()).exists()"
+             },
+             "$other": {
+               ".validate": false
+             }
+           }
+         }
        }
      }
    }
    ```
 
-   What these rules do: anyone with your share link can **read** that ride, nobody can list your rides, and only your Karoo's login can **write**. The first time your Karoo connects, it records itself as the owner, and after that no other account can write.
+   What these rules do: anyone with your share link can **read** that ride, nobody can list your rides, and only your Karoo's login can **write** it. The first time your Karoo connects, it records itself as the owner, and after that no other account can change your rides. The `msgs` part lets people watching a ride send you a short message (up to 100 characters, only while you're recording, at most 3 a minute per person and 10 a minute in total); only your Karoo can read them.
 
 4. **Copy the database URL.** Back on the **Data** tab, copy the URL at the top. It looks like `https://karoo-live-yourname-default-rtdb.firebaseio.com`.
 
-5. **Turn on email login.** Open **Security → Authentication** (older consoles: **Build → Authentication**), click **Get started**, choose **Email/Password**, switch on the first toggle, and click **Save**.
+5. **Turn on the logins.** Open **Security → Authentication** (older consoles: **Build → Authentication**), click **Get started**, choose **Email/Password**, switch on the first toggle, and click **Save**.
+   - For viewer messages, also click **Add new provider → Anonymous → Enable → Save**. This gives each person who sends you a message an invisible guest login, so the limits apply per person. They never see a sign-in screen.
 
 6. **Add a login for your Karoo.** Still in Authentication, open the **Users** tab, click **Add user**, and enter an email and a **new password used only for this**. The email doesn't need to be real, for example `karoo@yourname.example`.
 
-7. **Block sign-ups (recommended).** In Authentication open **Settings → User actions** and untick **Enable create (sign-up)**. Then nobody else can make accounts in your project.
+7. **Leave sign-ups on** (Authentication → **Settings → User actions → Enable create (sign-up)** ticked). Messages need it, because each sender's guest login is a new account. It's safe: other accounts can't change your rides, only send rate-limited messages. If you'll never want messages, you can untick it instead.
 
 8. **Copy the Web API key.** Click the gear next to *Project Overview* → **Project settings** → **General**, and copy the **Web API key**.
    - If it says there's no key yet: on *Project Overview* click the **`</>`** (Web) icon, register an app with any nickname (no hosting needed), and the key will appear.
@@ -116,6 +178,19 @@ Open **Karoo Live** from the Karoo's app list, fill in the fields, and tap **Sav
 | Page stays on *Waiting* during a ride | The Karoo has no internet. Check the SIM or hotspot. Karoo Live's screen shows the last upload time and any error. |
 | Page says *Signal lost* | Normal in dead zones. The Karoo keeps up to about 100 minutes of missed points and sends them when the signal returns. |
 | Nothing at all after install | Restart the Karoo so it starts the extension, then open Karoo Live once. |
+
+## Viewer messages
+
+People watching your link see a **Send a message** button while you're recording. It has two fields, **From** and **Message**. On the Karoo it beeps and pops up with their name. By default it stays on screen until you tap it; switch off **Keep each message on screen until tapped** in Karoo Live to have it clear after 15 seconds. Messages arrive within about a minute, at most one every 20 seconds, and up to 30 per ride. Turn **Messages from viewers** off in Karoo Live and the button disappears from your page.
+
+**Already set up before version 0.4.0?** Do this once:
+
+1. Firebase → Realtime Database → **Rules**: replace everything with the new rules above and click **Publish**.
+2. Firebase → Authentication → **Sign-in method → Add new provider → Anonymous → Enable → Save**.
+3. If you ticked off sign-ups earlier: Authentication → **Settings → User actions**, tick **Enable create (sign-up)** again.
+4. Install the new `karoo-live.apk` and restart the Karoo.
+
+If a viewer sees *"This rider hasn't finished setting up messages"*, one of the first three steps is missing.
 
 ## Changing or revoking the link
 
