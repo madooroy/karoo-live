@@ -246,7 +246,7 @@
 
   // ---------------------------------------------------------------- charts
   const CHARTS = [
-    { key: "alt", label: "Elevation", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; }, area: true, minSpan: 30 },
+    { key: "alt", label: "Elevation", short: "Elev", fmt: (v) => { const [x, u] = U.elev(v); return [fmtNum(x, 0), u]; }, area: true, minSpan: 30 },
     { key: "spd", label: "Speed", fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; }, minSpan: 3 },
     { key: "pwr", label: "Power", fmt: (v) => [fmtNum(v, 0), "W"], minSpan: 50 },
     { key: "hr", label: "Heart rate", short: "HR", fmt: (v) => [fmtNum(v, 0), "bpm"], minSpan: 20 },

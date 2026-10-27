@@ -280,15 +280,15 @@ a { color: var(--track); }
 .quick { padding: 8px 0 6px; }
 .quick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 10px 4px; flex-wrap: wrap; }
 .quick-head .hint { font-size: 12px; color: var(--text-3); }
-.quick-pick { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; min-width: 0; max-width: 100%; }
+.quick-pick { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; min-width: 0; max-width: 100%; }
 .quick-pick::-webkit-scrollbar { display: none; }
 .chip {
   flex: none;
   border: 1px solid var(--line); background: var(--surface); color: var(--text-2);
-  border-radius: 999px; padding: 5px 10px; font: 600 12px var(--ui); white-space: nowrap; cursor: pointer;
+  border-radius: 999px; padding: 5px 9px; font: 600 12px var(--ui); white-space: nowrap; cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
 }
-.chip::before { content: ""; width: 10px; height: 3px; border-radius: 2px; background: var(--chart-color); }
+.chip::before { content: ""; width: 8px; height: 3px; border-radius: 2px; background: var(--chart-color); }
 .chip.on { background: var(--text); color: var(--surface); border-color: var(--text); }
 .quick .chart svg { height: 100px; }
 .quick .chart-title { padding-top: 2px; }
