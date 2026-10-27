@@ -180,6 +180,33 @@
     return el;
   }
 
+  // After the ride: averages instead of live values (cadence average ignores coasting, like most apps).
+  function trackStats(key, skipZero) {
+    const vals = ((model && model.track) || []).map((p) => num(p[key])).filter((v) => v != null && (!skipZero || v > 0));
+    if (!vals.length) return null;
+    return { avg: vals.reduce((a, b) => a + b, 0) / vals.length, max: Math.max(...vals) };
+  }
+  const SUMMARY = [
+    { key: "spd", color: "spd", label: "Avg speed",
+      value: (c) => num(c.avgSpd) ?? (trackStats("spd") || {}).avg,
+      fmt: (v) => { const [x, u] = U.speed(v); return [fmtNum(x, 1), u]; },
+      foot: () => { const s = trackStats("spd"); return s ? "max " + U.speed(s.max).map((x, i) => (i ? x : fmtNum(x, 1))).join(" ") : ""; } },
+    { key: "pwr", color: "pwr", label: "Avg power",
+      value: (c) => num(c.avgPwr) ?? (trackStats("pwr") || {}).avg,
+      fmt: (v) => [fmtNum(v, 0), "W"],
+      foot: (c) => (c.np != null ? `NP ${fmtNum(c.np, 0)} W` : "") },
+    { key: "hr", color: "hr", label: "Avg heart rate",
+      value: () => (trackStats("hr") || {}).avg,
+      fmt: (v) => [fmtNum(v, 0), "bpm"],
+      foot: () => { const s = trackStats("hr"); return s ? `max ${fmtNum(s.max, 0)} bpm` : ""; } },
+    { key: "cad", color: "cad", label: "Avg cadence",
+      value: () => (trackStats("cad", true) || {}).avg,
+      fmt: (v) => [fmtNum(v, 0), "rpm"],
+      foot: () => "" },
+  ];
+  // Values that only make sense while riding.
+  const LIVE_ONLY = new Set(["alt", "grade", "toGo", "climbLeft"]);
+
   function renderMetrics() {
     const c = (model && model.cur) || {};
     const stale = !model || model.state !== "recording" || isStale();
@@ -188,21 +215,34 @@
     // this ride. Speed always shows (GPS provides it). With no ride data yet, show them all.
     const hasRide = model && (model.track.length || Object.keys(c).length);
     const seen = (key) => key === "spd" || !hasRide || num(c[key]) != null || model.track.some((p) => num(p[key]) != null);
-    PRIMARY.filter((d) => seen(d.key)).forEach((d) => {
-      // Instant values are meaningless once the rider has stopped or the signal is gone.
-      const v = stale && model && model.state !== "paused" ? null : num(c[d.key]);
-      const t = tile(d, v, "card");
-      const foot = document.createElement("div"); foot.className = "foot"; foot.textContent = d.foot(c);
-      t.append(foot);
-      prim.append(t);
-    });
+    const finished = hasRide && model.state === "idle";
+    if (finished) {
+      SUMMARY.filter((d) => seen(d.key)).forEach((d) => {
+        const v = d.value(c);
+        const t = tile(d, v == null ? null : v, "card");
+        const foot = document.createElement("div"); foot.className = "foot"; foot.textContent = d.foot(c);
+        t.append(foot);
+        prim.append(t);
+      });
+    } else {
+      PRIMARY.filter((d) => seen(d.key)).forEach((d) => {
+        // Instant values are meaningless once the rider has stopped or the signal is gone.
+        const v = stale && model && model.state !== "paused" ? null : num(c[d.key]);
+        const t = tile(d, v, "card");
+        const foot = document.createElement("div"); foot.className = "foot"; foot.textContent = d.foot(c);
+        t.append(foot);
+        prim.append(t);
+      });
+    }
     const sec = $("#metrics-secondary"); sec.replaceChildren();
     SECONDARY.forEach((d) => {
+      if (finished && LIVE_ONLY.has(d.key)) return;
       const v = num(c[d.key]);
       if (d.optional && v == null) return;
       sec.append(tile(d, v));
     });
   }
+
 
   // ---------------------------------------------------------------- charts
   const CHARTS = [
