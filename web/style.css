@@ -375,13 +375,13 @@ footer { margin-top: 22px; font-size: 12px; color: var(--text-3); text-align: ce
 }
 .msg-open[hidden] { display: none; }
 .msgcard { padding: 12px 14px; margin: 0 0 14px; }
-.msgcard form { display: grid; gap: 4px; }
+.msgcard form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 .msgcard label { font-size: 12px; font-weight: 600; color: var(--text-2); margin-top: 4px; }
 .msgcard input, .msgcard textarea {
-  width: 100%; box-sizing: border-box; padding: 9px 11px; font: 15px var(--ui); resize: none;
+  width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 11px; font: 15px var(--ui); resize: none;
   border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2, var(--surface)); color: var(--text);
 }
-.msg-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.msg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .msg-count { flex: 1; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .msg-row button { height: 40px; padding: 0 16px; border-radius: 10px; cursor: pointer; font: 600 14px var(--ui); }
 .msg-row #msg-send { border: 0; background: var(--text); color: var(--surface); }

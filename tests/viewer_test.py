@@ -473,7 +473,9 @@ def test_messages(browser, base):
     check(len(sent) == 1 and sent[0]["from"] == "Mom" and sent[0]["text"].startswith("Looking strong") and sent[0]["uid"] == "anon-viewer1",
           f"message written with sender and anonymous uid ({sent})")
     check(page.input_value("#msg-text") == "" and page.input_value("#msg-from") == "Mom", "text cleared, name kept")
-    check(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "no sideways scroll with the form open")
+    wide = page.evaluate("""[...document.querySelectorAll('body *')].filter(e => e.getBoundingClientRect().right > innerWidth + 0.5)
+        .slice(0, 6).map(e => (e.id || e.className || e.tagName) + ':' + Math.round(e.getBoundingClientRect().right))""")
+    check(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"no sideways scroll with the form open {wide}")
     page.screenshot(path=str(OUT / "message-sent.png"), full_page=False)
     page.fill("#msg-text", "And another")
     page.click("#msg-send")
