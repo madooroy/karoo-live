@@ -17,6 +17,8 @@ Your data goes to **your own free Firebase database**. There's no shared server,
 | Ride charts (elevation, speed, power, HR, cadence) | ✗ | ✓ |
 | Karoo battery, grade, distance to go | ✗ | ✓ |
 | Fills in gaps after a dead zone | ✗ | ✓ |
+| Splits per mile or km | ✗ | ✓ |
+| Viewers can send a message that pops up on the Karoo | ✗ | ✓ |
 
 ## Group rides
 
@@ -32,7 +34,7 @@ Karoo (Karoo Live extension)  ──every 15 s──▶  your Firebase Realtime 
 
 - **`android/`** is a small Karoo extension built on Hammerhead's official [karoo-ext](https://github.com/hammerheadnav/karoo-ext) SDK. While a ride is recording, it sends a snapshot every 15 seconds (adjustable): position, heading, 3s speed, 3s power, 3s cadence, heart rate, distance, times, climbing, grade, temperature, battery, and route progress. If the signal drops, points are queued and sent when it comes back.
 - **`web/`** is the viewer: static pages on GitHub Pages (`index.html` for one rider, `group.html` for a group, sharing `common.js`). It subscribes to your ride with the Firebase web SDK, so updates appear within a second of arriving, and draws the map with MapLibre (smooth vector maps, no API key).
-- **`firebase/database.rules.json`** holds the database rules. Anyone with the link can read one ride; only your Karoo's login can write.
+- **`firebase/database.rules.json`** holds the database rules. Anyone with the link can read one ride; only your Karoo's login can write it. Viewers can send short, rate-limited messages that only your Karoo can read (see [Viewer messages](docs/SETUP.md#viewer-messages)).
 
 The viewer can optionally also read a [KarooTracker](https://k2tracker.drakey.co.uk) feed (a third-party copy of Hammerhead's own tracking) with `?k2t=<id>`. It's only a backup and isn't needed; that service has been unreliable.
 
