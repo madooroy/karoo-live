@@ -291,6 +291,9 @@ details.table th { color: var(--text-2); font-weight: 600; }
 .landing { max-width: 640px; margin: 8vh auto 0; }
 .landing h1 { font-family: var(--num); font-size: 44px; margin: 0 0 6px; }
 .landing p { color: var(--text-2); line-height: 1.5; }
+.landing .land-note { font-size: 14px; color: var(--text-3); }
+.landing .land-h { font-size: 17px; margin: 26px 0 4px; color: var(--text); }
+.landing code { font-size: 13px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
 .landing form { display: flex; gap: 8px; margin: 18px 0 8px; }
 .landing input {
   flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: 15px var(--ui);

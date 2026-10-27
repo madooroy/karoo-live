@@ -67,15 +67,22 @@
   <main class="wrap" id="landing" hidden>
     <div class="landing">
       <h1>Karoo Live</h1>
-      <p>Follow a Hammerhead Karoo ride as it happens: the map, plus 3-second speed, power, cadence and heart rate.</p>
-      <p>Riders share a link that opens straight to their ride. If you have a link, paste it here. You can also paste a KarooTracker id to see Hammerhead's basic live tracking.</p>
+      <p>Live ride tracking for Hammerhead Karoo: the map, plus 3-second speed, power, cadence and heart rate.</p>
+      <p class="land-note">This is the front page. Each rider has their own personal link, and that link is what opens their ride.</p>
+
+      <h2 class="land-h">Watching someone ride?</h2>
+      <p>Open the link they sent you. It looks like <code>mybikeride.live/?db=…&amp;id=…</code>. You can also paste it here:</p>
       <form id="open-form">
-        <input id="open-input" placeholder="Paste a rider's Karoo Live link" autocomplete="off">
+        <input id="open-input" placeholder="Paste a rider's link" autocomplete="off">
         <button type="submit">Open</button>
       </form>
       <p class="notice" id="open-hint" hidden></p>
-      <p><a href="group.html">Follow a group ride →</a></p>
-      <p><a href="setup.html">Set up live tracking on your own Karoo →</a></p>
+
+      <h2 class="land-h">Following a group?</h2>
+      <p><a href="group.html">Open the group view →</a></p>
+
+      <h2 class="land-h">Riding with a Karoo?</h2>
+      <p><a href="setup.html">Set up Karoo Live on your Karoo →</a> Your personal link is shown on the Karoo afterwards (Karoo Live app, QR code at the bottom).</p>
     </div>
     <footer><a href="https://github.com/madooroy/karoo-live">github.com/madooroy/karoo-live</a></footer>
   </main>
