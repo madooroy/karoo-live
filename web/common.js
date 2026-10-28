@@ -141,8 +141,13 @@
   async function messageWait(m, shareId) {
     const { db, a, database } = m;
     const read = async (path) => (await db.get(db.ref(database, path))).val();
+    // .info/serverTimeOffset is known only to the browser's connection, so it must be listened to, not fetched.
+    const localOffset = () => new Promise((resolve) => {
+      const t = setTimeout(() => resolve(0), 3000);
+      db.onValue(db.ref(database, ".info/serverTimeOffset"), (snap) => { clearTimeout(t); resolve(snap.val() || 0); }, () => resolve(0), { onlyOnce: true });
+    });
     const [mine, all, offset] = await Promise.all([
-      read(`msgRate/${shareId}/${a.currentUser.uid}`), read(`msgRate/${shareId}/all`), read(".info/serverTimeOffset")]);
+      read(`msgRate/${shareId}/${a.currentUser.uid}`), read(`msgRate/${shareId}/all`), localOffset()]);
     const now = Date.now() + (offset || 0);
     const until = Math.max(mine ? mine.t + MSG_GAP_SENDER : 0, all ? all.t + MSG_GAP_ALL : 0);
     return Math.max(0, until - now);

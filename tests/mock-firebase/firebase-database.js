@@ -16,6 +16,7 @@ export function onValue(r, cb, errCb) {
   M.listeners.push(L);
   setTimeout(() => {
     if (r.path === ".info/connected") return cb({ val: () => true });
+    if (r.path === ".info/serverTimeOffset") return cb({ val: () => 0 });
     if ((window.__MOCK_DENY || []).includes(host)) return errCb && errCb({ code: "PERMISSION_DENIED", message: "permission_denied" });
     cb({ val: () => readPath(host, r.path) });
   }, 20 + Math.random() * 60);
@@ -41,7 +42,8 @@ export function push(r) { return { key: "-msg" + (++pushN) }; }
 export function serverTimestamp() { return { ".sv": "timestamp" }; }
 export async function get(r) {
   const host = hostOf(r.db);
-  if (r.path === ".info/serverTimeOffset") return { val: () => 0 };
+  // like the real server: .info paths can't be fetched
+  if (r.path.startsWith(".info")) throw Object.assign(new Error("Invalid token in path"), { code: "invalid-path" });
   if ((window.__MOCK_MSG_NORULES || []).includes(host)) throw denied();
   return { val: () => readPath(host, r.path) };
 }
