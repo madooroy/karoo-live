@@ -160,15 +160,15 @@
     } catch (e) {
       const code = (e && e.code) || "";
       if (/operation-not-allowed|admin-restricted|configuration-not-found|api-key/.test(code)) {
-        throw new MessageError("setup", "This rider hasn't finished setting up messages (Anonymous sign-in and sign-ups in Firebase).");
+        throw new MessageError("setup", `This rider hasn't finished setting up messages (Anonymous sign-in and sign-ups in Firebase). [${code.replace("auth/", "")}]`);
       }
-      throw new MessageError("failed", "Couldn't connect. Check your connection and try again.");
+      throw new MessageError("failed", `Couldn't connect. Check your connection and try again.${code ? ` [${code.replace("auth/", "")}]` : ""}`);
     }
     const { db, a, database } = m;
     for (let attempt = 0; attempt < 6; attempt++) {
       let wait;
       try { wait = await messageWait(m, shareId); }
-      catch (e) { throw new MessageError("setup", "This rider hasn't finished setting up messages (database rules)."); }
+      catch (e) { throw new MessageError("setup", `This rider hasn't finished setting up messages (database rules). [${(e && (e.code || e.message) || "").toString().slice(0, 40)}]`); }
       if (wait > 0) { onWait && onWait(wait); await new Promise((r) => setTimeout(r, wait + 300)); }
       const id = db.push(db.ref(database, `msgs/${shareId}`)).key;
       const ts = db.serverTimestamp();
