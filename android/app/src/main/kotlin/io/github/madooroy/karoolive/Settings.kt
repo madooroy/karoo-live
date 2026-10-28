@@ -97,7 +97,7 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("messagesEnabled", true)
         set(v) = prefs.edit().putBoolean("messagesEnabled", v).apply()
 
-    /** Like Garmin: a message stays on screen until tapped. Off = clears itself after 15 s. */
+    /** Like Garmin: a message stays on screen until swiped up. Off = clears itself after 15 s. */
     var messagesStay: Boolean
         get() = prefs.getBoolean("messagesStay", true)
         set(v) = prefs.edit().putBoolean("messagesStay", v).apply()

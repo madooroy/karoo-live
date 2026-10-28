@@ -284,7 +284,7 @@ class MainActivity : Activity() {
         }
         root.addView(messagesSwitch, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         stayCheck = Switch(this).apply {
-            text = "Keep each message on screen until tapped"
+            text = "Keep each message on screen until swiped away"
             textSize = 14f
             setPadding(dp(12), dp(2), 0, dp(2))
             setOnCheckedChangeListener { _, checked -> settings.messagesStay = checked }
