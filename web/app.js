@@ -15,7 +15,7 @@
 
   const KL = window.KarooLive;
   const { STALE_MS, SAFE_ID, normalizeHost, num, fmtNum, fmtDuration, ago,
-    firebaseSource, k2tSource, sendMessage, fromFirebase, fromK2t, merge,
+    firebaseSource, k2tSource, sendMessage, splitMessage, MSG_PART, fromFirebase, fromK2t, merge,
     STYLE_LIGHT, STYLE_DARK, EMPTY_LINE, css, isDark, lineOf } = KL;
 
   // ---------------------------------------------------------------- units
@@ -622,10 +622,54 @@
     $("#msg-open").hidden = !offered || msgOpen || !msgAllowed();
     $("#msg").hidden = !offered || !msgOpen;
     $("#msg-send").disabled = msgBusy || !msgAllowed();
+    if (msgOpen) renderSent();
     if (msgOpen && !msgBusy && !msgAllowed() && !$("#msg-note").classList.contains("ok")) setNote("Messages open again when the rider is recording.");
     else if (msgOpen && !msgBusy && msgAllowed() && $("#msg-note").textContent.startsWith("Messages open again")) setNote("");
   }
-  function updateCount() { $("#msg-count").textContent = `${$("#msg-text").value.length}/100`; }
+  function updateCount() {
+    const text = $("#msg-text").value, parts = splitMessage(text);
+    const count = $("#msg-count");
+    count.textContent = `${text.length}/100` + (parts.length > 1 ? ` · arrives in ${parts.length} parts` : "");
+    count.classList.toggle("warn", text.trim().length > MSG_PART);
+    const box = $("#msg-preview"), list = $("#msg-preview-parts");
+    box.hidden = parts.length < 2;
+    list.replaceChildren();
+    if (parts.length < 2) return;
+    const from = ($("#msg-from").value.trim() || "Your name").toUpperCase();
+    parts.forEach((p, i) => {
+      const b = document.createElement("div"); b.className = "kbanner";
+      const t = document.createElement("b"); t.textContent = `${from} ${i + 1}/${parts.length}`;
+      const d = document.createElement("span"); d.textContent = p;
+      b.append(t, d); list.append(b);
+    });
+  }
+  $("#msg-from").addEventListener("input", updateCount);
+
+  // What this viewer has sent during the current ride (kept on this device only, like Garmin's list).
+  function sentKey() { return model && model.startedAt ? `karoolive.sent.${dbHost}.${shareId}.${model.startedAt}` : null; }
+  function loadSent() { try { return JSON.parse(localStorage.getItem(sentKey()) || "[]"); } catch (e) { return []; } }
+  function saveSent(list) {
+    try {
+      localStorage.setItem(sentKey(), JSON.stringify(list.slice(-30)));
+      // forget earlier rides on this link
+      Object.keys(localStorage).filter((k) => k.startsWith(`karoolive.sent.${dbHost}.${shareId}.`) && k !== sentKey()).forEach((k) => localStorage.removeItem(k));
+    } catch (e) { /* storage blocked */ }
+  }
+  let sentShown = "";
+  function renderSent() {
+    const list = sentKey() ? loadSent() : [];
+    const sig = sentKey() + "|" + list.length;
+    if (sig === sentShown) return;
+    sentShown = sig;
+    $("#msg-sent").hidden = !list.length;
+    const ol = $("#msg-sent-list"); ol.replaceChildren();
+    list.forEach((m) => {
+      const li = document.createElement("li");
+      const time = document.createElement("time"); time.textContent = new Date(m.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      li.append(time, " ", m.text);
+      ol.append(li);
+    });
+  }
   $("#msg-text").addEventListener("input", updateCount);
   $("#msg-open").addEventListener("click", () => {
     msgOpen = true; setNote(""); renderMessaging();
@@ -642,6 +686,7 @@
     msgBusy = true; renderMessaging(); setNote("Sending…");
     try {
       await sendMessage(dbHost, info.key, shareId, from, text, (ms) => setNote(`Messages are spaced out a little. Sending in ${Math.ceil(ms / 1000)} s…`));
+      if (sentKey()) { const list = loadSent(); list.push({ t: Date.now(), text }); saveSent(list); renderSent(); }
       $("#msg-text").value = ""; updateCount();
       setNote("Sent. It pops up on the rider's Karoo within about a minute.", "ok");
     } catch (err) {

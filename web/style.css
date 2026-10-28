@@ -392,3 +392,12 @@ footer { margin-top: 22px; font-size: 12px; color: var(--text-3); text-align: ce
 .msg-note.ok { color: var(--ok, #2f8f4e); }
 .msg-note.bad { color: var(--c-hr); }
 #live { overflow-x: clip; } /* sub-pixel rounding must never make the page pan sideways */
+.msg-count.warn { color: var(--c-cad); font-weight: 600; }
+.msg-preview, .msg-sent { margin-top: 10px; }
+.msg-preview-head { font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+.kbanner { background: #1f5fbf; color: #fff; border-radius: 10px; padding: 7px 11px; margin-bottom: 5px; font-size: 15px; line-height: 1.25; }
+.kbanner b { display: block; font-size: 12px; letter-spacing: .03em; }
+.msg-sent ol { list-style: none; margin: 0; padding: 0; }
+.msg-sent li { font-size: 14px; color: var(--text); padding: 5px 0; border-top: 1px solid var(--grid); overflow-wrap: anywhere; }
+.msg-sent li:first-child { border-top: 0; }
+.msg-sent time { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; margin-right: 4px; }

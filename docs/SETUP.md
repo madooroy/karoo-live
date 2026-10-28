@@ -181,7 +181,7 @@ Open **Karoo Live** from the Karoo's app list, fill in the fields, and tap **Sav
 
 ## Viewer messages
 
-People watching your link see a **Send a message** button while you're recording. It has two fields, **From** and **Message**. On the Karoo it beeps and pops up with their name. By default it stays on screen until you swipe it up; switch off **Keep each message on screen until swiped away** in Karoo Live to have it clear after 15 seconds. Messages arrive within about a minute, at most one every 20 seconds, and up to 30 per ride. Turn **Messages from viewers** off in Karoo Live and the button disappears from your page.
+People watching your link see a **Send a message** button while you're recording. It has two fields, **From** and **Message**. On the Karoo it beeps and pops up with their name. The banner fits about 35 characters, so longer messages arrive in parts ("DON 1/2", "DON 2/2"); the sender sees a preview of the parts before sending, and every message this ride is listed in full at the top of the Karoo Live screen. By default it stays on screen until you swipe it up; switch off **Keep each message on screen until swiped up** in Karoo Live to have it clear after 15 seconds. Messages arrive within about a minute, at most one every 20 seconds, and up to 30 per ride. Turn **Messages from viewers** off in Karoo Live and the button disappears from your page.
 
 **Already set up before version 0.4.0?** Do this once:
 

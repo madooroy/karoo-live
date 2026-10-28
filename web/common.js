@@ -133,6 +133,22 @@
     return msgApps.get(k);
   }
 
+  /** How the Karoo shows a message: its banner fits about 35 characters, so longer ones come in parts.
+   *  Must match Tracker.splitMessage in the app. */
+  const MSG_PART = 35;
+  function splitMessage(text, size = MSG_PART) {
+    const parts = [];
+    let cur = "";
+    for (let w of text.trim().split(/\s+/).filter(Boolean)) {
+      while (w.length > size) { if (cur) { parts.push(cur); cur = ""; } parts.push(w.slice(0, size)); w = w.slice(size); }
+      if (!cur) cur = w;
+      else if (cur.length + 1 + w.length <= size) cur += " " + w;
+      else { parts.push(cur); cur = w; }
+    }
+    if (cur) parts.push(cur);
+    return parts;
+  }
+
   class MessageError extends Error {
     constructor(kind, message) { super(message); this.kind = kind; }
   }
@@ -313,7 +329,7 @@
   window.KarooLive = {
     STALE_MS, SAFE_ID, normalizeHost, num, decodePolyline, haversine,
     fmtNum, fmtDuration, ago, unitFormatters,
-    loadFirebase, firebaseSource, k2tSource, sendMessage, fromFirebase, fromK2t, merge,
+    loadFirebase, firebaseSource, k2tSource, sendMessage, splitMessage, MSG_PART, fromFirebase, fromK2t, merge,
     STYLE_LIGHT, STYLE_DARK, EMPTY_LINE, css, isDark, lineOf,
   };
 })();

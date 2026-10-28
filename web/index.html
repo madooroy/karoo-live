@@ -40,7 +40,15 @@
           <button type="submit" id="msg-send">Send</button>
         </div>
       </form>
+      <div class="msg-preview" id="msg-preview" hidden>
+        <div class="msg-preview-head">How it shows on the Karoo</div>
+        <div id="msg-preview-parts"></div>
+      </div>
       <p class="msg-note" id="msg-note" role="status" aria-live="polite"></p>
+      <div class="msg-sent" id="msg-sent" hidden>
+        <div class="msg-preview-head">Your messages this ride</div>
+        <ol id="msg-sent-list"></ol>
+      </div>
     </section>
 
     <div class="grid-main">

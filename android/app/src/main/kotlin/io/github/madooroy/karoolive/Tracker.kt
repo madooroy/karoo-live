@@ -298,6 +298,7 @@ class Tracker(
     private suspend fun clearMessages(shareId: String) {
         settings.lastMessageTs = 0L
         settings.rideMessages = 0
+        settings.rideMessageLog = ""
         try {
             firebase.patch("", buildJsonObject {
                 put("msgs/$shareId", JsonNull)
@@ -337,32 +338,44 @@ class Tracker(
             }
             settings.rideMessages = settings.rideMessages + 1
             Timber.i("Message received (${text.length} chars)")
+            settings.addRideMessage(System.currentTimeMillis(), from, text)
             messages.trySend(from to text)
         }
     }
 
-    /** Shows queued messages one at a time, at most one every 20 seconds, with a beep. */
+    /**
+     * Shows queued messages one at a time with a beep. The Karoo's banner fits about 35 characters,
+     * so longer messages come as "NAME 1/2", "NAME 2/2": earlier parts clear themselves after 8 s,
+     * the last part follows the stay/clear setting. Messages start at most every 20 s.
+     */
     private suspend fun showMessages() {
         var n = 0
         for ((from, text) in messages) {
             if (rideState !is RideState.Recording && rideState !is RideState.Paused) continue // ride ended meanwhile
-            try {
-                karooSystem.dispatch(PlayBeepPattern(listOf(
-                    PlayBeepPattern.Tone(2000, 120), PlayBeepPattern.Tone(null, 80), PlayBeepPattern.Tone(2600, 160),
-                )))
-                karooSystem.dispatch(
-                    InRideAlert(
-                        id = "karoo-live-msg-${++n}",
-                        icon = R.drawable.ic_karoo_live,
-                        title = from,
-                        detail = text,
-                        autoDismissMs = if (settings.messagesStay) null else 15_000L,
-                        backgroundColor = R.color.msg_background,
-                        textColor = R.color.msg_text,
-                    ),
-                )
-            } catch (e: Exception) {
-                Timber.w(e, "Couldn't show a message")
+            val parts = splitMessage(text)
+            parts.forEachIndexed { i, part ->
+                val last = i == parts.lastIndex
+                try {
+                    if (i == 0) {
+                        karooSystem.dispatch(PlayBeepPattern(listOf(
+                            PlayBeepPattern.Tone(2000, 120), PlayBeepPattern.Tone(null, 80), PlayBeepPattern.Tone(2600, 160),
+                        )))
+                    }
+                    karooSystem.dispatch(
+                        InRideAlert(
+                            id = "karoo-live-msg-${++n}",
+                            icon = R.drawable.ic_karoo_live,
+                            title = if (parts.size > 1) "$from ${i + 1}/${parts.size}" else from,
+                            detail = part,
+                            autoDismissMs = if (!last) PART_SHOW_MS else if (settings.messagesStay) null else 15_000L,
+                            backgroundColor = R.color.msg_background,
+                            textColor = R.color.msg_text,
+                        ),
+                    )
+                } catch (e: Exception) {
+                    Timber.w(e, "Couldn't show a message")
+                }
+                if (!last) delay(PART_SHOW_MS + 400)
             }
             delay(MESSAGE_GAP_MS)
         }
@@ -497,6 +510,29 @@ class Tracker(
         private const val MAX_PENDING = 400
         private const val MAX_MESSAGES_PER_RIDE = 30
         private const val MESSAGE_GAP_MS = 20_000L
+        private const val PART_SHOW_MS = 8_000L
+        const val MESSAGE_PART = 35
+
+        /** Splits at word boundaries into banner-sized parts. Must match splitMessage in web/common.js. */
+        fun splitMessage(text: String, size: Int = MESSAGE_PART): List<String> {
+            val parts = mutableListOf<String>()
+            var cur = ""
+            for (word in text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }) {
+                var w = word
+                while (w.length > size) {
+                    if (cur.isNotEmpty()) { parts += cur; cur = "" }
+                    parts += w.substring(0, size)
+                    w = w.substring(size)
+                }
+                cur = when {
+                    cur.isEmpty() -> w
+                    cur.length + 1 + w.length <= size -> "$cur $w"
+                    else -> { parts += cur; w }
+                }
+            }
+            if (cur.isNotEmpty()) parts += cur
+            return parts
+        }
         private val TIME = SimpleDateFormat("HH:mm:ss", Locale.US)
 
         val STREAMED_TYPES = listOf(

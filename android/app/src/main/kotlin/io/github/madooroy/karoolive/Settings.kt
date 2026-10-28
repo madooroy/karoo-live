@@ -112,6 +112,16 @@ class Settings(context: Context) {
         get() = prefs.getInt("rideMessages", 0)
         set(v) = prefs.edit().putInt("rideMessages", v).apply()
 
+    /** This ride's messages, newest last, one per line: "<ms>\t<from>\t<text>". Shown in the app. */
+    var rideMessageLog: String
+        get() = prefs.getString("rideMessageLog", "") ?: ""
+        set(v) = prefs.edit().putString("rideMessageLog", v).apply()
+
+    fun addRideMessage(at: Long, from: String, text: String) {
+        val clean = { s: String -> s.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ') }
+        rideMessageLog = (rideMessageLog.lines().filter { it.isNotBlank() } + "$at\t${clean(from)}\t${clean(text)}").takeLast(40).joinToString("\n")
+    }
+
     /** Gear changes counted during the current ride. */
     var rideShifts: Int
         get() = prefs.getInt("rideShifts", 0)

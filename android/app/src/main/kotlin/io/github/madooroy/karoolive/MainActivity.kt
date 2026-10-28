@@ -57,6 +57,8 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var enabledSwitch: Switch
     private lateinit var messagesSwitch: Switch
+    private lateinit var messagesHeader: TextView
+    private lateinit var messagesView: TextView
     private lateinit var stayCheck: Switch
     private lateinit var name: EditText
     private lateinit var db: EditText
@@ -92,6 +94,7 @@ class MainActivity : Activity() {
                 val time = if (at > 0) DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at)) + "  " else ""
                 status.text = time + settings.lastStatus
                 logView.text = FileLog.tail(this@MainActivity, 40).joinToString("\n").ifBlank { "Nothing logged yet." }
+                showRideMessages()
                 delay(2000)
             }
         }
@@ -242,6 +245,21 @@ class MainActivity : Activity() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
+    /** Every message this ride in full, newest first (the banner only fits about 35 characters). */
+    private fun showRideMessages() {
+        val lines = settings.rideMessageLog.lines().filter { it.isNotBlank() }.mapNotNull {
+            val f = it.split('\t', limit = 3)
+            if (f.size < 3) null else {
+                val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(f[0].toLongOrNull() ?: 0L))
+                "$time  ${f[1]}: ${f[2]}"
+            }
+        }.reversed()
+        val show = if (lines.isEmpty()) View.GONE else View.VISIBLE
+        messagesHeader.visibility = show
+        messagesView.visibility = show
+        messagesView.text = lines.joinToString("\n\n")
+    }
+
     private fun buildUi(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -265,6 +283,22 @@ class MainActivity : Activity() {
         }
         root.addView(status, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
+        messagesHeader = TextView(this).apply {
+            text = "Messages this ride"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(12), 0, dp(4))
+            visibility = View.GONE
+        }
+        root.addView(messagesHeader)
+        messagesView = TextView(this).apply {
+            textSize = 15f
+            setPadding(dp(10), dp(6), dp(10), dp(8))
+            setBackgroundColor(Color.argb(40, 31, 95, 191))
+            visibility = View.GONE
+        }
+        root.addView(messagesView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
         enabledSwitch = Switch(this).apply {
             text = "Share live during rides"
             textSize = 16f
@@ -284,14 +318,14 @@ class MainActivity : Activity() {
         }
         root.addView(messagesSwitch, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         stayCheck = Switch(this).apply {
-            text = "Keep each message on screen until swiped away"
+            text = "Keep each message on screen until swiped up"
             textSize = 14f
             setPadding(dp(12), dp(2), 0, dp(2))
             setOnCheckedChangeListener { _, checked -> settings.messagesStay = checked }
         }
         root.addView(stayCheck, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         root.addView(TextView(this).apply {
-            text = "People watching your link can send a short note. It beeps and pops up during the ride (at most one every 20 s, 30 per ride)."
+            text = "People watching your link can send a short note. It beeps and pops up during the ride (at most one every 20 s, 30 per ride). Long notes come in parts; all of this ride's messages are listed at the top of this screen."
             textSize = 12f
             alpha = 0.7f
             setPadding(dp(12), 0, 0, dp(4))
