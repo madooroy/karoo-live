@@ -479,14 +479,17 @@
         if (alt > ref + 1) { get(Math.floor(Math.max(0, b.d) / L)).gain += alt - ref; ref = alt; }
         else if (alt < ref - 1) ref = alt;
       }
-      if (!(dt > 0) || !(dd > 0) || dd / (dt / 1000) < 0.5) continue; // stopped
+      if (!(dd > 0)) continue;
+      // Stopped or paused (e.g. a gap spanning a café stop): the distance still counts, so every split adds up
+      // to the ride's distance, but the time doesn't, so split times stay moving time.
+      const moving = dt > 0 && dd / (dt / 1000) >= 0.5;
       const v = { pwr: mid(a, b, "pwr"), hr: mid(a, b, "hr"), cad: mid(a, b, "cad", true) };
       let start = Math.max(0, a.d);
       const end = b.d;
       while (start < end - 1e-6) {
         const idx = Math.floor(start / L + 1e-9);
         const segEnd = Math.min(end, (idx + 1) * L);
-        const wt = dt * ((segEnd - start) / dd);
+        const wt = moving ? dt * ((segEnd - start) / dd) : 0;
         const s = get(idx);
         s.dist += segEnd - start; s.time += wt;
         Object.keys(v).forEach((k) => add(s, k, v[k], wt));

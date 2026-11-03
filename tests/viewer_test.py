@@ -133,6 +133,21 @@ DB = {
     HOST_DENIED: {"live": {"hidden0001": rider("Hidden", 1000)}},
 }
 
+
+def with_stop(node, at_m, minutes):
+    """Inserts a stop (a long gap between two track points) at a distance, the way a pause looks on the page."""
+    pts = sorted(node["track"].values(), key=lambda p: p["t"])
+    k = next(i for i, p in enumerate(pts) if p["d"] >= at_m)
+    for p in pts[k:]:
+        p["t"] += minutes * MIN
+    node["track"] = {f"p{p['t']}": p for p in pts}
+    node["updatedAt"] = pts[-1]["t"]
+    return node
+
+
+# Pia (single-rider page only) stops for 20 minutes just before the 5 km mark: the gap's ~400 m must still count.
+DB[HOST_A]["live"]["piaShare01"] = with_stop(rider("Pia", 12_000, updated=NOW - 25 * MIN), 5_000, 20)
+
 # Ben and Fay have viewer messages switched on (Fay is paused, so she can't receive any right now).
 for _id in ("benShare01", "fayShare01"):
     DB[HOST_B]["live"][_id]["msg"] = {"on": True, "key": "test-web-key"}
@@ -460,6 +475,14 @@ def test_single_rider_still_works(browser, base):
     page.wait_for_timeout(800)
     gear_tile = page.evaluate("[...document.querySelectorAll('.metric')].find(m => m.querySelector('.label span')?.textContent === 'Gear')?.querySelector('.value').textContent")
     check(gear_tile == "7", f"single-rider page still shows the gear via the shared formatter ({gear_tile!r})")
+    page.goto(f"{base}/?db=club-rides&id=piaShare01")
+    page.wait_for_function("document.querySelector('#rider').textContent === 'Pia' && document.querySelectorAll('#split-body tr').length > 0", timeout=15000)
+    labels = page.eval_on_selector_all("#split-body tr td:first-child", "els => els.map(e => e.textContent)")
+    total = page.inner_text("#split-foot td:first-child")
+    check(labels == [str(i) for i in range(1, 13)] and total == "12.0", f"a stop inside a split keeps its distance (1 km): splits {labels}, total {total!r}")
+    page.click("#split-pick button:text-is('5 km')")
+    labels = page.eval_on_selector_all("#split-body tr td:first-child", "els => els.map(e => e.textContent)")
+    check(labels == ["5", "10", "+2.00"], f"a stop inside a split keeps its distance (5 km): splits {labels}")
     page.goto(f"{base}/")
     check(page.is_visible("#landing"), "landing page still shows")
     ctx.close()
