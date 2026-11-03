@@ -195,3 +195,17 @@ If a viewer sees *"This rider hasn't finished setting up messages"*, one of the 
 ## Changing or revoking the link
 
 In Karoo Live tap **Make a new link**. The old link stops updating. You can delete old rides any time in Firebase → Realtime Database → Data → `live`.
+
+## Showing an earlier ride again
+
+Your link always shows your latest ride: each new ride replaces the one before. If a ride you wanted to keep showing was replaced (by a quick test ride, say), you can put it back from its ride file:
+
+1. On [dashboard.hammerhead.io](https://dashboard.hammerhead.io), open the ride and download its **FIT** file.
+2. Convert it with [`tools/fit-to-live.py`](../tools/fit-to-live.py) (needs Python):
+   ```
+   pip install fitdecode
+   python fit-to-live.py Karoo-My_Ride-2026-11-03-1103.fit ride.json --name "Your Name" --units imperial
+   ```
+3. In Firebase → Realtime Database → **Data**, open `live` and click your share id (the `id=` part of your link) so it's selected. From the **⋮** menu choose **Import JSON** and pick `ride.json`. Check the dialog's **Data Location** reads `/live/<your share id>` before you click **Import**: importing at the top would replace your whole database.
+
+The page then shows that ride as finished. The planned route isn't in the ride file, so it's left out. Your next ride replaces it as usual.
