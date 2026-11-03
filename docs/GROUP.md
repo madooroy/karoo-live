@@ -26,7 +26,7 @@ The group lives entirely in the link. There's no account, nothing is stored, and
 - **View:** *Everyone* keeps all riders on the road in view. *Route* shows the whole route. *Follow on map* (in a rider's details) keeps one rider centered.
 - **Rider list:** sorted by distance to go when there's a route, or by distance ridden. Each row shows the gap to the leader on the road, in distance and in time. The time is when the leader passed the rider's current spot, worked out from the leader's track. Gap rows separate the bunches, like a race broadcast. Finished riders head the list.
 - **States:** Live, Signal lost (no update for 2½ minutes while recording), Paused, Finished, Not started (nothing since a ride more than 12 hours ago), and Can't load (the rider's database isn't readable).
-- **Details:** tap a rider for their current numbers. Power, heart rate and cadence only appear if that rider has those sensors.
+- **Details:** tap a rider for their current numbers. Power, heart rate and cadence only appear if that rider has those sensors. Gear and shift count appear for a Pinion gearbox ("7") or electronic derailleurs ("2 × 9"), with the average gear once the rider has finished.
 - **Low battery** (20% or less) is flagged in the list.
 
 ### Distance to go for riders not navigating

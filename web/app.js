@@ -14,7 +14,7 @@
   const params = new URLSearchParams(location.search);
 
   const KL = window.KarooLive;
-  const { STALE_MS, SAFE_ID, normalizeHost, num, fmtNum, fmtDuration, ago,
+  const { STALE_MS, SAFE_ID, normalizeHost, num, fmtNum, gearText, fmtDuration, ago,
     firebaseSource, k2tSource, sendMessage, splitMessage, MSG_PART, fromFirebase, fromK2t, merge,
     STYLE_LIGHT, STYLE_DARK, EMPTY_LINE, css, isDark, lineOf } = KL;
 
@@ -181,13 +181,6 @@
     }
     el.append(label, val);
     return el;
-  }
-
-  /** "7" for a gearbox, "2 × 9" for front and rear derailleurs. */
-  function gearText(p, gear) {
-    const g = num(gear ?? p.gear);
-    if (g == null) return "—";
-    return num(p.fg) != null ? `${fmtNum(p.fg, 0)} × ${fmtNum(g, 0)}` : fmtNum(g, 0);
   }
 
   // After the ride: averages instead of live values (cadence average ignores coasting, like most apps).

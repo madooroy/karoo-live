@@ -77,8 +77,8 @@ def at(dist):
 
 
 def rider(name, dist, *, state="recording", updated=NOW - 10_000, speed=7.5, sensors=("pwr", "hr", "cad"),
-          navigating=True, started=NOW - 3 * 3600 * 1000, ended=None, units="metric", acc=6):
-    """A /live/<id> node as the Karoo extension writes it."""
+          navigating=True, started=NOW - 3 * 3600 * 1000, ended=None, units="metric", acc=6, gears=None):
+    """A /live/<id> node as the Karoo extension writes it. gears: None, "pinion" or "derailleur"."""
     track = {}
     t0, t1 = started, updated
     n = max(2, int(dist // 400))
@@ -90,6 +90,8 @@ def rider(name, dist, *, state="recording", updated=NOW - 10_000, speed=7.5, sen
         if "pwr" in sensors: p["pwr"] = 180 + (k % 7) * 9
         if "hr" in sensors: p["hr"] = 132 + (k % 5)
         if "cad" in sensors: p["cad"] = 86
+        if gears == "pinion": p["gear"] = 4 + k % 2 * 2           # alternates 4 and 6: average 5.0
+        if gears == "derailleur": p.update(fg=2, rg=8 + k % 2 * 2)  # rear alternates 8 and 10: average 9.0
         track[f"p{t}"] = p
     (lat, lng), brg = at(dist)
     cur = {"lat": round(lat, 6), "lng": round(lng, 6), "brg": round(brg), "acc": acc, "alt": 130, "spd": speed,
@@ -98,7 +100,9 @@ def rider(name, dist, *, state="recording", updated=NOW - 10_000, speed=7.5, sen
     if "pwr" in sensors: cur.update(pwr=212, avgPwr=181, np=195)
     if "hr" in sensors: cur["hr"] = 138
     if "cad" in sensors: cur["cad"] = 88
-    node = {"name": name, "units": units, "state": state, "startedAt": started, "updatedAt": updated, "cur": cur, "track": track}
+    if gears == "pinion": cur.update(gear=7, shifts=31)
+    if gears == "derailleur": cur.update(fg=2, rg=9, fgMax=2, rgMax=11, shifts=88)
+    node ={"name": name, "units": units, "state": state, "startedAt": started, "updatedAt": updated, "cur": cur, "track": track}
     if navigating:
         node["route"] = {"poly": POLY, "name": "Monadnock Loop", "dist": round(ROUTE_LEN)}
         cur["toGo"] = round(ROUTE_LEN - dist)
@@ -115,8 +119,8 @@ HOST_DENIED = "locked-down-default-rtdb.firebaseio.com"
 DB = {
     HOST_A: {"live": {
         "anaShare01": rider("Ana", 31_000),                                                  # leader, full sensors
-        "caraShare1": rider("Cara", 30_880, sensors=(), navigating=False, speed=7.3),       # bunched with Ana, speed only, projected
-        "eliShare01": rider("Eli", ROUTE_LEN - 20, state="idle", updated=NOW - 20 * MIN, ended=NOW - 20 * MIN),  # finished
+        "caraShare1": rider("Cara", 30_880, sensors=(), navigating=False, speed=7.3, gears="pinion"),  # bunched with Ana, speed only, projected; Pinion
+        "eliShare01": rider("Eli", ROUTE_LEN - 20, state="idle", updated=NOW - 20 * MIN, ended=NOW - 20 * MIN, gears="derailleur"),  # finished; derailleurs
         "gusShare01": rider("Gus", 52_000, state="idle", updated=NOW - 50 * 3600 * 1000, ended=NOW - 50 * 3600 * 1000),  # last week's ride
     }},
     HOST_B: {"live": {
@@ -275,10 +279,23 @@ def test_group(browser, base):
     sw = page.evaluate("getComputedStyle(document.querySelector('.rdetail .rl .swatch')).backgroundColor")
     check(sw == "rgb(42, 120, 214)", f"detail tiles use the viewer's metric colors (speed swatch {sw})")
     check("Heart rate" in labels and "Power 3s" not in labels and "Cadence" not in labels, "Ben's details show HR but no power/cadence")
+    check(not any(x in labels for x in ("Gear", "Shifts", "Avg gear")), "no gear tiles for a bike that reports no gear")
     check(page.locator(".gm.sel").count() == 1, "selected rider highlighted on the map")
     page.click("#riders .rider-row:has(.rname:text-is('Cara')) .rhead")
     labels = page.eval_on_selector_all(".rdetail .rl", "els => els.map(e => e.textContent)")
     check(not any(x in labels for x in ("Heart rate", "Power 3s", "Cadence")) and "Speed" in labels, "Cara (no sensors) shows speed but no sensor tiles")
+    detail_val = "(l) => { const m = [...document.querySelectorAll('.rdetail .rm')].find(m => m.querySelector('.rl').textContent === l); return m ? m.querySelector('.rv').textContent : null; }"
+    gsw = page.evaluate("[...document.querySelectorAll('.rdetail .rm')].find(m => m.querySelector('.rl').textContent==='Gear')?.querySelector('.swatch') && getComputedStyle([...document.querySelectorAll('.rdetail .rm')].find(m => m.querySelector('.rl').textContent==='Gear').querySelector('.swatch')).backgroundColor")
+    check(page.evaluate(detail_val, "Gear") == "7" and page.evaluate(detail_val, "Shifts") == "31", "live Pinion rider: gear and shift count in the details")
+    check(gsw == "rgb(91, 107, 122)", f"gear tile uses the gear metric color ({gsw})")
+    check("Avg gear" not in labels, "no average gear while still riding")
+    page.click("#riders .rider-row:has(.rname:text-is('Eli')) .rhead")
+    labels = page.eval_on_selector_all(".rdetail .rl", "els => els.map(e => e.textContent)")
+    eli = {l: page.evaluate(detail_val, l) for l in ("Gear", "Shifts", "Avg gear")}
+    print("    Eli gears:", eli)
+    check(eli == {"Gear": "—", "Shifts": "88", "Avg gear": "9.0"}, f"finished derailleur rider: gear blanked, shifts and average rear gear shown ({eli})")
+    page.click("#riders .rider-row:has(.rname:text-is('Cara')) .rhead")
+    page.screenshot(path=str(OUT / "group-phone-gear.png"), full_page=True)
     page.click("#riders .rider-row:has(.rname:text-is('Dev')) .rhead")
     dev_speed = page.evaluate("[...document.querySelectorAll('.rdetail .rm')].find(m => m.querySelector('.rl').textContent==='Speed').querySelector('.rv').textContent")
     check(dev_speed == "—", "stale rider's instant numbers blanked")
@@ -438,6 +455,11 @@ def test_single_rider_still_works(browser, base):
     page.goto(f"{base}/?k2t=kimK2tId01")
     page.wait_for_function("document.querySelector('#rider').textContent.startsWith('Kim')", timeout=15000)
     check(True, "KarooTracker-only link still works")
+    page.goto(f"{base}/?db=club-rides&id=caraShare1")
+    page.wait_for_function("document.querySelector('#rider').textContent === 'Cara'", timeout=15000)
+    page.wait_for_timeout(800)
+    gear_tile = page.evaluate("[...document.querySelectorAll('.metric')].find(m => m.querySelector('.label span')?.textContent === 'Gear')?.querySelector('.value').textContent")
+    check(gear_tile == "7", f"single-rider page still shows the gear via the shared formatter ({gear_tile!r})")
     page.goto(f"{base}/")
     check(page.is_visible("#landing"), "landing page still shows")
     ctx.close()

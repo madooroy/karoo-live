@@ -45,6 +45,12 @@
   function fmtNum(v, digits) {
     return v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   }
+  /** "7" for a gearbox, "2 × 9" for front and rear derailleurs. `gear` overrides p.gear (a chart row's value). */
+  function gearText(p, gear) {
+    const g = num(gear ?? p.gear);
+    if (g == null) return "—";
+    return num(p.fg) != null ? `${fmtNum(p.fg, 0)} × ${fmtNum(g, 0)}` : fmtNum(g, 0);
+  }
   function fmtDuration(ms) {
     if (ms == null) return null;
     const s = Math.max(0, Math.round(ms / 1000));
@@ -328,7 +334,7 @@
 
   window.KarooLive = {
     STALE_MS, SAFE_ID, normalizeHost, num, decodePolyline, haversine,
-    fmtNum, fmtDuration, ago, unitFormatters,
+    fmtNum, gearText, fmtDuration, ago, unitFormatters,
     loadFirebase, firebaseSource, k2tSource, sendMessage, splitMessage, MSG_PART, fromFirebase, fromK2t, merge,
     STYLE_LIGHT, STYLE_DARK, EMPTY_LINE, css, isDark, lineOf,
   };

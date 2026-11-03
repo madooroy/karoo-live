@@ -22,7 +22,7 @@
   "use strict";
 
   const KL = window.KarooLive;
-  const { STALE_MS, SAFE_ID, normalizeHost, num, haversine, fmtNum, fmtDuration, ago,
+  const { STALE_MS, SAFE_ID, normalizeHost, num, haversine, fmtNum, gearText, fmtDuration, ago,
     firebaseSource, k2tSource, fromFirebase, fromK2t, STYLE_LIGHT, STYLE_DARK, css, isDark, lineOf } = KL;
 
   const $ = (sel) => document.querySelector(sel);
@@ -637,6 +637,10 @@
       { key: "pwr", color: "pwr", label: "Power 3s", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "W"] },
       { key: "hr", color: "hr", label: "Heart rate", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "bpm"] },
       { key: "cad", color: "cad", label: "Cadence", instant: true, sensor: true, fmt: (v) => [fmtNum(v, 0), "rpm"] },
+      // Pinion gearbox ("7") or derailleurs ("2 × 9"); shown only on bikes that report a gear.
+      { key: "gear", color: "gear", label: "Gear", instant: true, sensor: true, fmt: (v, c) => [gearText(c, v), ""] },
+      { key: "shifts", label: "Shifts", fmt: (v) => [fmtNum(v, 0), ""] },
+      { key: "_avgGear", label: "Avg gear", fmt: (v) => [fmtNum(v, 1), ""] },
       { key: "dist", label: "Distance", fmt: (v) => fmtDist(v) },
       { key: "_togo", label: "To go", fmt: (v) => fmtDist(v) },
       { key: "rt", label: "Moving", fmt: (v) => [fmtDuration(v), ""] },
@@ -658,8 +662,14 @@
       const live = s === "live";
       const seen = (k) => num(c[k]) != null || (m && m.track.some((p) => num(p[k]) != null));
       const grid = el("div", "rgrid");
+      // Average gear over the ride, shown once the rider has finished (as on the single-rider page).
+      const avgGear = () => {
+        if (s !== "finished" || !m) return null;
+        const g = m.track.map((p) => num(p.gear)).filter((x) => x != null);
+        return g.length ? g.reduce((a, b) => a + b, 0) / g.length : null;
+      };
       DETAIL.forEach((d) => {
-        let v = d.key === "_togo" ? r.toGo : num(c[d.key]);
+        let v = d.key === "_togo" ? r.toGo : d.key === "_avgGear" ? avgGear() : num(c[d.key]);
         if (d.sensor && !seen(d.key)) return;            // no such sensor on this bike
         if (!d.always && !d.sensor && v == null) return;  // nothing to show
         if (d.instant && !live) v = null;                 // instant values mean nothing once stopped or lost
@@ -670,7 +680,7 @@
         t.append(rl);
         const val = el("div", "rv");
         if (v == null) { val.textContent = "—"; val.classList.add("na"); }
-        else { const [x, u] = d.fmt(v); val.append(x); if (u) val.append(el("span", "u", u)); }
+        else { const [x, u] = d.fmt(v, c); val.append(x); if (u) val.append(el("span", "u", u)); }
         t.append(val); grid.append(t);
       });
       if (!grid.children.length) grid.append(el("p", "hint", "No numbers yet."));
