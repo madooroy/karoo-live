@@ -4,9 +4,22 @@
 
 Your data goes to **your own free Firebase database**. There's no shared server, no account with anyone else, and nothing to host.
 
-<p align="center">
-  <img src="docs/screenshot-phone.png" width="300" alt="Viewer page on a phone: map, live status, speed, power, heart rate and cadence">
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/ride-live.jpg" width="200" alt="During a ride: 3-second speed, power, heart rate and cadence, then distance, times, climbing, distance to go, gear, shift count and Karoo battery"></td>
+    <td align="center" valign="top"><img src="docs/ride-summary.jpg" width="200" alt="After the ride: average speed, power, heart rate and cadence with maximums, then distance, elapsed and moving time, climbing, shifts, average gear and battery"></td>
+    <td align="center" valign="top"><img src="docs/ride-charts.jpg" width="200" alt="Charts of the whole ride: elevation, speed, power, heart rate, cadence and gear"></td>
+    <td align="center" valign="top"><img src="docs/ride-splits.jpg" width="200" alt="Splits every 5 miles with moving time, speed, climbing, power, heart rate and cadence"></td>
+  </tr>
+  <tr>
+    <td align="center">During the ride</td>
+    <td align="center">After the ride</td>
+    <td align="center">Charts</td>
+    <td align="center">Splits</td>
+  </tr>
+</table>
+
+<sub>From a real 32-mile ride (Karoo 2, Pinion gearbox). The map sits above these on the page; it's left out here.</sub>
 
 | | Hammerhead live tracking | **Karoo Live** |
 |---|---|---|
@@ -15,10 +28,19 @@ Your data goes to **your own free Firebase database**. There's no shared server,
 | Distance, time, climbing | Sent, but not shown by most viewers | ✓ |
 | 3s speed, 3s power, 3s cadence, heart rate | ✗ | ✓ |
 | Ride charts (elevation, speed, power, HR, cadence) | ✗ | ✓ |
+| Gear and shift count (Pinion gearbox or electronic derailleurs) | ✗ | ✓ |
 | Karoo battery, grade, distance to go | ✗ | ✓ |
 | Fills in gaps after a dead zone | ✗ | ✓ |
 | Splits per mile or km | ✗ | ✓ |
 | Viewers can send a message that pops up on the Karoo | ✗ | ✓ |
+
+## Messages from viewers
+
+While you're recording, anyone with your link can send a short note. The Karoo beeps and shows it as a banner; longer notes come in parts, and the page shows the sender exactly how it will look. Messages are rate-limited, and only your Karoo can read them. You can switch them off in the app. Setup: [Viewer messages](docs/SETUP.md#viewer-messages).
+
+<p align="center">
+  <img src="docs/message-form.jpg" width="300" alt="The message form on the viewer page: From and Message fields, a 46-character note that arrives in 2 parts, and a preview of the two Karoo banners">
+</p>
 
 ## Group rides
 
